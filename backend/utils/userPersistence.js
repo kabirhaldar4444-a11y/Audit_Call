@@ -7,8 +7,12 @@ const userStorePath = path.join(__dirname, '../data/users.json');
 const dataDir = path.dirname(userStorePath);
 
 // Ensure data directory exists
-if (!fs.existsSync(dataDir)) {
-  fs.mkdirSync(dataDir, { recursive: true });
+try {
+  if (!fs.existsSync(dataDir)) {
+    fs.mkdirSync(dataDir, { recursive: true });
+  }
+} catch (err) {
+  console.warn('⚠️  Could not create dataDir. Vercel environment is read-only.');
 }
 
 /**

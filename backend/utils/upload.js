@@ -5,8 +5,12 @@ const fs = require('fs');
 // Ensure upload directories exist
 const uploadDirs = ['uploads/audio', 'uploads/data'];
 uploadDirs.forEach((dir) => {
-  if (!fs.existsSync(dir)) {
-    fs.mkdirSync(dir, { recursive: true });
+  try {
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+  } catch (err) {
+    console.warn(`⚠️  Could not create ${dir}. Vercel environment is read-only.`);
   }
 });
 
