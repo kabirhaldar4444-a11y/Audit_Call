@@ -21,11 +21,8 @@ if (!process.env.JWT_SECRET) {
 // Initialize app
 const app = express();
 
-// Middleware
-app.use(cors({
-  origin: ['https://audit-call-frontend.vercel.app', 'http://localhost:3000'],
-  credentials: true
-}));
+// Middleware - OPEN CORS for connectivity debugging
+app.use(cors({ origin: '*', credentials: true }));
 app.use(express.json({ limit: '500mb' }));
 app.use(express.urlencoded({ limit: '500mb', extended: true }));
 
@@ -51,10 +48,9 @@ app.get('/', (req, res) => {
   });
 });
 
-// Health check
-app.get('/api/health', (req, res) => {
-  res.status(200).json({ message: 'Server is running' });
-});
+// Health checks
+app.get('/health', (req, res) => res.status(200).json({ message: 'Server is running' }));
+app.get('/api/health', (req, res) => res.status(200).json({ message: 'Server is running' }));
 
 // Error handling middleware
 app.use((err, req, res, next) => {
