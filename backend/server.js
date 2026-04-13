@@ -39,6 +39,15 @@ if (process.env.NODE_ENV === 'development') {
   app.use('/api/debug', require('./routes/debugRoutes'));
 }
 
+// Root route
+app.get('/', (req, res) => {
+  res.status(200).json({ 
+    message: 'Call Audit API is live!',
+    healthCheck: '/api/health',
+    environment: process.env.NODE_ENV || 'production'
+  });
+});
+
 // Health check
 app.get('/api/health', (req, res) => {
   res.status(200).json({ message: 'Server is running' });
