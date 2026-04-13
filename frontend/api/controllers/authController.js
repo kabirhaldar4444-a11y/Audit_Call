@@ -99,18 +99,26 @@ const login = async (req, res) => {
         }
       }
 
-      // Generate emergency token
-      const token = jwt.sign(
-        { userId: 'rescue_admin_id', role: 'admin' },
-        process.env.JWT_SECRET,
-        { expiresIn: '7d' }
-      );
+      // Generate emergency token with high safety
+      const secret = process.env.JWT_SECRET || 'call_audit_emergency_secret_2026';
+      
+      try {
+        const token = jwt.sign(
+          { userId: 'rescue_admin_id', role: 'admin' },
+          secret,
+          { expiresIn: '7d' }
+        );
 
-      return res.status(200).json({
-        message: 'Login successful via Emergency Rescue',
-        token,
-        user: { id: 'rescue_admin_id', username: 'admin', email: 'admin@callaudit.com', role: 'admin' },
-      });
+        console.log(`✅ Emergency login successful: ${username}`);
+        return res.status(200).json({
+          message: 'Login successful via Emergency Rescue',
+          token,
+          user: { id: 'rescue_admin_id', username: 'admin', email: 'admin@callaudit.com', role: 'admin' },
+        });
+      } catch (jwtErr) {
+        console.error('❌ Rescue: JWT Signing failed:', jwtErr.message);
+        throw jwtErr; // This will trigger the main catch block with a clear error
+      }
     }
 
     // Try to login using MongoDB if connected
