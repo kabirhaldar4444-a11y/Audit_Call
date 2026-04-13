@@ -54,6 +54,7 @@ const Dashboard = () => {
 
 
   const [loading, setLoading] = useState(true);
+  // eslint-disable-next-line no-unused-vars
   const [uploading, setUploading] = useState(false);
   const [selectedAudio, setSelectedAudio] = useState(null);
   const [uploadStatus, setUploadStatus] = useState(null);
@@ -94,6 +95,7 @@ const Dashboard = () => {
 
   useEffect(() => {
     fetchData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page, debouncedFilters, sortConfig]);
 
   const handleSelectAll = (e) => {
