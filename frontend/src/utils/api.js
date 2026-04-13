@@ -2,11 +2,11 @@ import axios from 'axios';
 
 const getApiUrl = () => {
   const { hostname } = window.location;
-  // If we are on the live Vercel site, ALWAYS use the production backend
+  // On Vercel, the backend is now hosted on the SAME domain under /api
   if (hostname.includes('vercel.app')) {
-    return 'https://audit-call-backend.vercel.app/api';
+    return '/api';
   }
-  // Otherwise use the environment variable or local default
+  // Fallback for local development
   return process.env.REACT_APP_API_URL || 'http://localhost:5001/api';
 };
 
