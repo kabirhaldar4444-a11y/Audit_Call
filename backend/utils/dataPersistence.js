@@ -6,8 +6,12 @@ const dataStorePath = path.join(__dirname, '../data/calls.json');
 const dataDir = path.dirname(dataStorePath);
 
 // Ensure data directory exists
-if (!fs.existsSync(dataDir)) {
-  fs.mkdirSync(dataDir, { recursive: true });
+try {
+  if (!fs.existsSync(dataDir)) {
+    fs.mkdirSync(dataDir, { recursive: true });
+  }
+} catch (err) {
+  console.warn('⚠️  Could not create dataDir in dataPersistence.js. Vercel environment is read-only.');
 }
 
 /**
