@@ -30,9 +30,19 @@ app.use(express.urlencoded({ limit: '500mb', extended: true }));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Routes
-app.use('/api/auth', require('./routes/authRoutes'));
-app.use('/api/calls', require('./routes/callRoutes'));
-app.use('/api/audits', require('./routes/auditRoutes'));
+const authRoutes = require('./routes/authRoutes');
+const callRoutes = require('./routes/callRoutes');
+const auditRoutes = require('./routes/auditRoutes');
+
+// Standard routes
+app.use('/api/auth', authRoutes);
+app.use('/api/calls', callRoutes);
+app.use('/api/audits', auditRoutes);
+
+// Fallback routes (Vercel often strips the /api prefix during rewrites)
+app.use('/auth', authRoutes);
+app.use('/calls', callRoutes);
+app.use('/audits', auditRoutes);
 
 // Debug routes (development only)
 if (process.env.NODE_ENV === 'development') {
