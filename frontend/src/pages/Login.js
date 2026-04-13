@@ -59,8 +59,10 @@ const Login = ({ onLoginSuccess }) => {
   return (
     <div className="login-container">
       <div className="login-card">
-        <h1>Call Audit System</h1>
-        <p className="subtitle">{isRegister ? 'Register' : 'Admin Login'} <span style={{fontSize: '8px'}}>v2.0.1</span></p>
+        <div className="login-logo-container">
+          <h1 className="login-title">Call Audit System</h1>
+          <p className="login-subtitle">{isRegister ? 'Register' : 'Admin Login'} <span style={{ fontSize: '0.7em', color: '#999' }}>v2.0.2</span></p>
+        </div>
 
         <div className={`server-status ${serverStatus}`}>
           {getStatusMessage()}
