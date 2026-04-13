@@ -76,7 +76,7 @@ const Login = ({ onLoginSuccess }) => {
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               placeholder="Enter your username"
-              disabled={loading || serverStatus === 'disconnected'}
+              disabled={loading}
             />
           </div>
 
@@ -89,7 +89,7 @@ const Login = ({ onLoginSuccess }) => {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="Enter your email"
-                disabled={loading || serverStatus === 'disconnected'}
+                disabled={loading}
               />
             </div>
           )}
@@ -102,7 +102,7 @@ const Login = ({ onLoginSuccess }) => {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="Enter your password"
-              disabled={loading || serverStatus === 'disconnected'}
+              disabled={loading}
             />
           </div>
 
@@ -111,7 +111,7 @@ const Login = ({ onLoginSuccess }) => {
           <button 
             type="submit" 
             className="login-btn" 
-            disabled={loading || serverStatus === 'disconnected'}
+            disabled={loading}
           >
             {loading ? 'Loading...' : isRegister ? 'Register' : 'Login'}
           </button>
