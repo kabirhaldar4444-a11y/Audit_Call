@@ -60,7 +60,7 @@ const Login = ({ onLoginSuccess }) => {
     <div className="login-container">
       <div className="login-card">
         <h1>Call Audit System</h1>
-        <p className="subtitle">{isRegister ? 'Register' : 'Admin Login'}</p>
+        <p className="subtitle">{isRegister ? 'Register' : 'Admin Login'} <span style={{fontSize: '8px'}}>v2.0.1</span></p>
 
         <div className={`server-status ${serverStatus}`}>
           {getStatusMessage()}
