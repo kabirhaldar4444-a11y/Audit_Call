@@ -8,13 +8,15 @@ const {
   uploadCallData, 
   uploadAudio,
   deleteCalls,
-  updateCallStatus 
+  updateCallStatus,
+  getCallsByDateRange
 } = require('../controllers/callController');
 const { audioUpload, dataUpload } = require('../utils/upload');
 
 const router = express.Router();
 
 router.get('/stats', authenticate, adminOnly, getDashboardStats);
+router.get('/by-date', authenticate, adminOnly, getCallsByDateRange);
 router.get('/', authenticate, adminOnly, getAllCalls);
 router.get('/:id', authenticate, adminOnly, getCallById);
 router.post('/', authenticate, adminOnly, createCall);

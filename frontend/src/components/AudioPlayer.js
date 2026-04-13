@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import './AudioPlayer.css';
-import { FiPlay, FiPause, FiX, FiActivity } from 'react-icons/fi';
+import { FiPlay, FiPause, FiX, FiActivity, FiVolume, FiVolume2 } from 'react-icons/fi';
 import { FaHeadphones } from 'react-icons/fa';
 
 const AudioPlayer = ({ audioUrl, callInfo, onClose }) => {
@@ -8,11 +8,15 @@ const AudioPlayer = ({ audioUrl, callInfo, onClose }) => {
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [audioError, setAudioError] = useState(false);
+  const [playbackSpeed, setPlaybackSpeed] = useState(1);
   const audioRef = useRef(null);
 
   useEffect(() => {
     setAudioError(false);
-  }, [audioUrl]);
+    if (audioRef.current) {
+      audioRef.current.playbackRate = playbackSpeed;
+    }
+  }, [audioUrl, playbackSpeed]);
 
   const handlePlayPause = () => {
     if (audioError) return;
@@ -124,6 +128,23 @@ const AudioPlayer = ({ audioUrl, callInfo, onClose }) => {
 
           <div className="sub-controls">
             <button onClick={() => handleSkip(-10)} className="step-btn">⏪ -10 sec</button>
+            <div className="speed-control">
+              <div className="speed-slider-wrapper">
+                <FiVolume className="speed-icon" />
+                <input 
+                  type="range"
+                  min="0.5"
+                  max="5"
+                  step="0.1"
+                  value={playbackSpeed}
+                  onChange={(e) => setPlaybackSpeed(parseFloat(e.target.value))}
+                  className="speed-slider"
+                  style={{ '--progress': `${((playbackSpeed - 0.5) / 4.5) * 100}%` }}
+                />
+                <FiVolume2 className="speed-icon" />
+              </div>
+              <span className="speed-value">{playbackSpeed}x Speed</span>
+            </div>
             <button onClick={() => handleSkip(10)} className="step-btn">+10 sec ⏩</button>
           </div>
         </div>

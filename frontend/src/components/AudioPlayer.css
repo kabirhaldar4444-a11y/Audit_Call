@@ -145,6 +145,7 @@
   width: 100%;
   height: 4px;
   -webkit-appearance: none;
+  appearance: none;
   background: rgba(255, 255, 255, 0.3);
   border-radius: 2px;
   outline: none;
@@ -216,12 +217,77 @@
   background: rgba(255, 255, 255, 0.1);
   border: none;
   color: white;
-  padding: 8px 16px;
+  padding: 8px 12px;
   border-radius: 20px;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 600;
   cursor: pointer;
+  white-space: nowrap;
 }
 
 .step-btn:hover { background: rgba(255, 255, 255, 0.2); }
+
+.speed-control {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  margin: 0 10px;
+}
+
+.speed-slider-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+}
+
+.speed-icon {
+  font-size: 16px;
+  opacity: 0.8;
+}
+
+.speed-slider {
+  flex: 1;
+  height: 6px;
+  -webkit-appearance: none;
+  appearance: none;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 3px;
+  outline: none;
+  cursor: pointer;
+  position: relative;
+}
+
+.speed-slider::-webkit-slider-runnable-track {
+  width: 100%;
+  height: 6px;
+  background: linear-gradient(to right, #7b2ff7 0%, #7b2ff7 var(--progress), rgba(255, 255, 255, 0.2) var(--progress));
+  border-radius: 3px;
+}
+
+.speed-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 20px;
+  height: 20px;
+  background: #7b2ff7;
+  border: 3px solid white;
+  border-radius: 50%;
+  cursor: pointer;
+  margin-top: -7px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+  transition: transform 0.1s;
+}
+
+.speed-slider:active::-webkit-slider-thumb {
+  transform: scale(1.2);
+}
+
+.speed-value {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  opacity: 0.9;
+}
 

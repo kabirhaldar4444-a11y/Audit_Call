@@ -6,10 +6,12 @@ const callSchema = new mongoose.Schema(
       type: String,
       required: true,
       unique: true,
+      index: true,
     },
     agentName: {
       type: String,
       required: true,
+      index: true,
     },
     agentEmail: {
       type: String,
@@ -19,15 +21,16 @@ const callSchema = new mongoose.Schema(
     },
     process: {
       type: String,
+      index: true,
     },
     date: {
       type: Date,
       required: true,
+      index: true,
     },
     phoneNumber: {
       type: String,
     },
-
     duration: {
       type: String,
     },
@@ -36,7 +39,7 @@ const callSchema = new mongoose.Schema(
     },
     audioUrl: {
       type: String,
-      required: true,
+      default: '',
     },
     audioFilename: {
       type: String,
@@ -50,13 +53,18 @@ const callSchema = new mongoose.Schema(
       type: String,
       enum: ['pending', 'audited'],
       default: 'pending',
+      index: true,
     },
     isActive: {
       type: Boolean,
       default: true,
+      index: true,
     },
   },
   { timestamps: true }
 );
+
+// Compound index for date filtering and status
+callSchema.index({ date: -1, isActive: 1, status: 1 });
 
 module.exports = mongoose.model('Call', callSchema);

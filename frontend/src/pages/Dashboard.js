@@ -22,39 +22,35 @@ const Dashboard = () => {
     key: 'date',
     direction: 'desc'
   });
+  const [page, setPage] = useState(1);
+  const [pagination, setPagination] = useState({
+    total: 0,
+    totalPages: 1,
+    limit: 20
+  });
+  const [debouncedFilters, setDebouncedFilters] = useState(filters);
 
   const handleStatusUpdate = async (id, newStatus) => {
     try {
       await api.patch(`/calls/${id}/status`, { status: newStatus });
       setCalls(prev => prev.map(call => call._id === id ? { ...call, status: newStatus } : call));
+      fetchData();
     } catch (error) {
       console.error('Error updating status:', error);
     }
   };
 
-  const filteredCalls = calls
-    .filter(call => {
-      const matchStatus = !filters.status || call.status === filters.status;
-      return (
-        matchStatus &&
-        (call.callId?.toLowerCase().includes(filters.callId.toLowerCase())) &&
-        (call.agentName?.toLowerCase().includes(filters.agentName.toLowerCase())) &&
-        (call.process?.toLowerCase().includes(filters.process.toLowerCase())) &&
-        (!filters.date || new Date(call.date).toLocaleDateString().includes(filters.date))
-      );
-    })
-    .sort((a, b) => {
-      const aValue = a[sortConfig.key];
-      const bValue = b[sortConfig.key];
-      
-      if (sortConfig.key === 'date') {
-        const dateA = new Date(aValue);
-        const dateB = new Date(bValue);
-        return sortConfig.direction === 'asc' ? dateA - dateB : dateB - dateA;
-      }
-      
-      return 0;
-    });
+  // Server-side sorting/filtering replaces local filtering for performance
+  const displayCalls = calls;
+  
+  // Debounce filter updates
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedFilters(filters);
+      setPage(1); // Reset to page 1 on search
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [filters]);
 
 
   const [loading, setLoading] = useState(true);
@@ -65,29 +61,44 @@ const Dashboard = () => {
   const dataFilesInput = useRef(null);
   const audioFilesInput = useRef(null);
 
+  const isFetching = useRef(false);
   const fetchData = async () => {
+    if (isFetching.current) return;
+    isFetching.current = true;
+    
     try {
+      const queryParams = new URLSearchParams({
+        page,
+        limit: 20,
+        sortField: sortConfig.key,
+        sortOrder: sortConfig.direction,
+        ...debouncedFilters
+      });
+
       const [statsRes, callsRes] = await Promise.all([
         api.get('/calls/stats'),
-        api.get('/calls')
+        api.get(`/calls?${queryParams.toString()}`)
       ]);
+      
       setStats(statsRes.data.data);
       setCalls(callsRes.data.data);
-      setSelectedCalls([]); // Reset selection on fetch
+      setPagination(callsRes.data.pagination);
+      setSelectedCalls([]); 
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
     } finally {
       setLoading(false);
+      isFetching.current = false;
     }
   };
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [page, debouncedFilters, sortConfig]);
 
   const handleSelectAll = (e) => {
     if (e.target.checked) {
-      setSelectedCalls(filteredCalls.map(call => call._id));
+      setSelectedCalls(displayCalls.map(call => call._id));
     } else {
       setSelectedCalls([]);
     }
@@ -145,12 +156,16 @@ const Dashboard = () => {
         setUploadStatus({ type: 'warning', message: 'No records found in the uploaded file.' });
       }
       
-      fetchData();
+      // Refresh handled in finally
     } catch (error) {
 
       setUploadStatus({ type: 'error', message: error.response?.data?.message || 'Error uploading data' });
     } finally {
       setUploading(false);
+      // Brief delay to allow DB indexing to complete for large datasets
+      setTimeout(() => {
+        fetchData();
+      }, 800);
       if (dataFilesInput.current) dataFilesInput.current.value = '';
     }
   };
@@ -175,6 +190,7 @@ const Dashboard = () => {
       setUploadStatus({ type: 'error', message: error.response?.data?.message || 'Error uploading audio' });
     } finally {
       setUploading(false);
+      fetchData();
       if (audioFilesInput.current) audioFilesInput.current.value = '';
     }
   };
@@ -272,6 +288,7 @@ const Dashboard = () => {
             </button>
           )}
         </div>
+        <div className="table-wrapper">
         <div className="calls-table">
           <table>
             <thead>
@@ -279,10 +296,11 @@ const Dashboard = () => {
                 <th className="checkbox-col">
                   <input
                     type="checkbox"
-                    checked={selectedCalls.length > 0 && selectedCalls.length === filteredCalls.length}
+                    checked={selectedCalls.length > 0 && selectedCalls.length === displayCalls.length}
                     onChange={handleSelectAll}
                   />
                 </th>
+                <th className="sl-no-col">Sl No</th>
                 <th>
                   Call ID
                   <div className="header-filter-container">
@@ -317,12 +335,17 @@ const Dashboard = () => {
                   </div>
                 </th>
                 <th 
-                  onClick={() => setSortConfig({ key: 'date', direction: sortConfig.direction === 'asc' ? 'desc' : 'asc' })}
+                  onClick={() => setSortConfig({ key: 'date', direction: sortConfig.key === 'date' && sortConfig.direction === 'asc' ? 'desc' : 'asc' })}
                   className="sortable"
                 >
-                  DATE & TIME {sortConfig.direction === 'asc' ? '🔼' : '🔽'}
+                  DATE & TIME {sortConfig.key === 'date' && (sortConfig.direction === 'asc' ? '🔼' : '🔽')}
                 </th>
-                <th>DURATION</th>
+                <th 
+                  onClick={() => setSortConfig({ key: 'duration', direction: sortConfig.key === 'duration' && sortConfig.direction === 'asc' ? 'desc' : 'asc' })}
+                  className="sortable"
+                >
+                  DURATION {sortConfig.key === 'duration' && (sortConfig.direction === 'asc' ? '🔼' : '🔽')}
+                </th>
                 <th>AGENT EMAIL</th>
                 <th>
                   STATUS
@@ -344,7 +367,7 @@ const Dashboard = () => {
 
 
             <tbody>
-              {filteredCalls.map((call) => (
+              {displayCalls.map((call, index) => (
                 <tr key={call._id} className={selectedCalls.includes(call._id) ? 'selected-row' : ''}>
                   <td className="checkbox-col">
                     <input 
@@ -353,6 +376,7 @@ const Dashboard = () => {
                       checked={selectedCalls.includes(call._id)}
                     />
                   </td>
+                  <td className="sl-no-col">{(page - 1) * pagination.limit + index + 1}</td>
                   <td className="bold">{call.callId}</td>
                   <td>{call.agentName}</td>
                   <td>{call.process || 'General'}</td>
@@ -368,7 +392,7 @@ const Dashboard = () => {
                     {call.audioUrl ? (
                       <button
                         className="audio-link-btn"
-                        onClick={() => setSelectedAudio(call.audioUrl)}
+                        onClick={() => setSelectedAudio({ url: call.audioUrl, call })}
                         title="Listen to recording"
                       >
                         Listen
@@ -388,18 +412,63 @@ const Dashboard = () => {
 
               {calls.length === 0 && (
                 <tr>
-                  <td colSpan="9" className="empty-row">No call records found. Upload an Excel file to get started.</td>
+                  <td colSpan="11" className="empty-row">No call records found. Upload an Excel file to get started.</td>
                 </tr>
               )}
             </tbody>
           </table>
         </div>
+        </div>
+
+        {pagination.totalPages > 1 && (
+          <div className="pagination-container">
+            <button 
+              disabled={page === 1} 
+              onClick={() => setPage(p => Math.max(1, p - 1))}
+              className="pagination-btn"
+            >
+              Previous
+            </button>
+            
+            <div className="pagination-pages">
+              {(() => {
+                const pages = [];
+                const maxVisible = 5;
+                let start = Math.max(1, page - 2);
+                let end = Math.min(pagination.totalPages, start + maxVisible - 1);
+                if (end - start < maxVisible - 1) start = Math.max(1, end - maxVisible + 1);
+
+                for (let i = start; i <= end; i++) {
+                  pages.push(
+                    <button 
+                      key={i} 
+                      onClick={() => setPage(i)}
+                      className={`pagination-page ${page === i ? 'active' : ''}`}
+                    >
+                      {i}
+                    </button>
+                  );
+                }
+                return pages;
+              })()}
+            </div>
+
+            <button 
+              disabled={page === pagination.totalPages} 
+              onClick={() => setPage(p => Math.min(pagination.totalPages, p + 1))}
+              className="pagination-btn"
+            >
+              Next
+            </button>
+          </div>
+        )}
       </div>
 
 
       {selectedAudio && (
         <AudioPlayer 
-          audioUrl={selectedAudio.startsWith('http') ? selectedAudio : `${process.env.REACT_APP_API_URL.replace('/api', '')}${selectedAudio}`} 
+          audioUrl={selectedAudio.url.startsWith('http') ? selectedAudio.url : `${process.env.REACT_APP_API_URL.replace('/api', '')}${selectedAudio.url}`} 
+          callInfo={selectedAudio.call}
           onClose={() => setSelectedAudio(null)} 
         />
       )}

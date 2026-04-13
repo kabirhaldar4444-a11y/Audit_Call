@@ -1,7 +1,14 @@
 const User = require('../models/User');
+const { initializeUsers } = require('../utils/userPersistence');
 
 const initializeDatabase = async () => {
   try {
+    // If in offline mode, initialize local users storage
+    if (process.env.DB_MODE === 'offline') {
+      initializeUsers();
+      return;
+    }
+
     // Check if any users exist
     const userCount = await User.countDocuments();
 

@@ -4,6 +4,7 @@
   margin-top: 70px;
   background-color: #f8faff;
   min-height: calc(100vh - 70px);
+  transition: all 0.3s ease;
 }
 
 .dashboard-header {
@@ -59,7 +60,7 @@
 /* Stats */
 .stats-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
   gap: 25px;
   margin-bottom: 40px;
 }
@@ -125,7 +126,7 @@
 
 .upload-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
   gap: 20px;
 }
 
@@ -439,13 +440,40 @@ th.sortable:hover {
   background: #f1f5f9 !important;
 }
 
-@media (max-width: 1024px) {
+@media (max-width: 1400px) {
+  .dashboard-container { margin-left: 200px; }
+  .stats-grid { grid-template-columns: repeat(3, 1fr); }
+}
 
-  .stats-grid { grid-template-columns: repeat(2, 1fr); }
+@media (max-width: 1200px) {
+  .dashboard-container { margin-left: 0; }
+  .stats-grid { grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
+}
+
+@media (max-width: 1024px) {
+  .dashboard-container { margin-left: 0; padding: 20px; }
+  .sidebar { transform: translateX(-100%); }
+  .sidebar.open { transform: translateX(0); }
+  .stats-grid { grid-template-columns: repeat(2, 1fr); gap: 15px; }
   .upload-grid { grid-template-columns: 1fr; }
+  .calls-table { height: calc(100vh - 500px); }
 }
 
 @media (max-width: 768px) {
-  .dashboard-container { margin-left: 0; padding: 20px; }
+  .dashboard-header { flex-direction: column; align-items: flex-start; gap: 15px; }
   .stats-grid { grid-template-columns: 1fr; }
+  .records-header { flex-direction: column; align-items: flex-start; gap: 10px; }
+  .col-filter { min-width: 80px; }
+  th, td { padding: 10px 8px; font-size: 11px; }
+  .status-pill { padding: 2px 6px; font-size: 10px; }
+  .action-buttons { flex-direction: column; gap: 5px; }
+  .status-btn { margin-left: 0; margin-top: 5px; width: 100%; justify-content: center; }
+  .audio-link-btn { width: 100%; text-align: center; }
+}
+
+/* Fix for horizontal scroll on table wrapper */
+.table-wrapper {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
