@@ -118,7 +118,7 @@ const uploadCallData = async (req, res) => {
       return res.status(400).json({ message: 'Please upload an Excel or CSV file' });
     }
 
-    const workbook = xlsx.readFile(req.file.path);
+    const workbook = xlsx.read(req.file.buffer, { type: 'buffer' });
     const sheetName = workbook.SheetNames[0];
     const sheet = workbook.Sheets[sheetName];
     const data = xlsx.utils.sheet_to_json(sheet);
@@ -218,7 +218,7 @@ const uploadCallData = async (req, res) => {
       }
     }
 
-    if (fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
+    // Cleanup not needed with memoryStorage
 
     console.log(`✅ Upload complete: ${results.success} success, ${results.failed} failed`);
     res.status(200).json({
@@ -227,7 +227,7 @@ const uploadCallData = async (req, res) => {
     });
   } catch (error) {
     console.error('❌ UPLOAD ERROR:', error);
-    if (req.file && fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
+    // Cleanup not needed with memoryStorage
     
     let errorMessage = 'Error uploading data';
     if (error.code === 11000) errorMessage = 'Duplicate Call IDs detected in the system.';
@@ -266,8 +266,10 @@ const uploadAudio = async (req, res) => {
           results.errors.push(`No call record found matching filename: ${file.originalname}`);
           continue;
         }
-        call.audioUrl = `/uploads/audio/${file.filename}`;
-        call.audioFilename = file.filename;
+        // NOTE: In Serverless/Vercel, we can't save physical files.
+        // For now, we just update the metadata to confirm the "upload" happened.
+        call.audioUrl = `data:${file.mimetype};base64,${file.buffer.toString('base64')}`;
+        call.audioFilename = file.originalname;
         await call.save();
         results.success++;
       } catch (err) {
