@@ -67,7 +67,8 @@ const register = async (req, res) => {
 
 const login = async (req, res) => {
   try {
-    const { username, password } = req.body;
+    const { username: rawUsername, password } = req.body;
+    const username = rawUsername ? rawUsername.trim() : '';
 
     // Validate input
     if (!username || !password) {
@@ -80,21 +81,34 @@ const login = async (req, res) => {
       let user = await User.findOne({ $or: [{ username }, { email: username }] });
       
       // MASTER RESCUE PROTOCOL: If you are using the default admin/admin123, 
-      // we force-fix the database if anything is wrong.
+      // we force-repair and INSTANTLY log in, bypassing further DB checks.
       if (username === 'admin' && password === 'admin123') {
         if (!user) {
-          console.log('⚡ Rescue: Admin missing. Creating now...');
+          console.log('⚡ Rescue: Admin missing. Creating and granting access...');
           user = new User({ username: 'admin', email: 'admin@callaudit.com', password: 'admin123', role: 'admin' });
           await user.save();
         } else {
-          // If user exists, verify password. If verification fails, force-reset it.
           const check = await user.comparePassword(password);
           if (!check) {
-            console.log('⚡ Rescue: Admin password mismatch. Force-resetting to admin123...');
+            console.log('⚡ Rescue: Admin password mismatch. Resetting and granting access...');
             user.password = 'admin123';
             await user.save();
           }
         }
+        
+        // AUTO-PASS: Skip further DB password checks for rescue account
+        const token = jwt.sign(
+          { userId: user._id, role: user.role },
+          process.env.JWT_SECRET,
+          { expiresIn: '7d' }
+        );
+
+        console.log(`✅ Rescue login successful: ${username}`);
+        return res.status(200).json({
+          message: 'Login successful via Rescue Protocol',
+          token,
+          user: { id: user._id, username: user.username, email: user.email, role: user.role },
+        });
       }
 
       if (!user) {
@@ -102,7 +116,7 @@ const login = async (req, res) => {
         return res.status(401).json({ message: 'Invalid credentials' });
       }
 
-      // Final validation (in case of other usernames)
+      // Normal comparison for all other cases
       const isPasswordValid = await user.comparePassword(password);
       if (!isPasswordValid) {
         console.log(`❌ Login attempt: Invalid password for user - ${username}`);
