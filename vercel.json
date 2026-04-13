@@ -13,14 +13,19 @@
       }
     }
   ],
-  "rewrites": [
+  "routes": [
     {
-      "source": "/api/(.*)",
-      "destination": "/backend/index.js"
+      "src": "/api/(.*)",
+      "dest": "backend/index.js",
+      "methods": ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"]
     },
     {
-      "source": "/(.*)",
-      "destination": "/frontend/$1"
+      "src": "/static/(.*)",
+      "dest": "frontend/static/$1"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "frontend/$1"
     }
   ]
 }
