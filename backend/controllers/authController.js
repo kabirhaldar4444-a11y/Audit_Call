@@ -77,7 +77,21 @@ const login = async (req, res) => {
     // Try to login using MongoDB if connected
     if (process.env.DB_MODE !== 'offline') {
       // Find user
-      const user = await User.findOne({ $or: [{ username }, { email: username }] });
+      let user = await User.findOne({ $or: [{ username }, { email: username }] });
+      
+      // FOOLPROOF FIX: If no users exist at all and someone tries to login as admin, create it now!
+      const totalUsers = await User.countDocuments();
+      if (totalUsers === 0 && username === 'admin') {
+        console.log('⚡ Empty database detected. Auto-creating initial admin user...');
+        user = new User({
+          username: 'admin',
+          email: 'admin@callaudit.com',
+          password: 'admin123',
+          role: 'admin'
+        });
+        await user.save();
+      }
+
       if (!user) {
         console.log(`❌ Login attempt: User not found - ${username}`);
         return res.status(401).json({ message: 'Invalid credentials' });
