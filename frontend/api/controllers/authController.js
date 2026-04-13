@@ -127,7 +127,7 @@ const login = async (req, res) => {
       const isPasswordValid = await user.comparePassword(password);
       if (!isPasswordValid) {
         console.log(`❌ Login attempt: Invalid password for user - ${username}`);
-        return res.status(401).json({ message: 'Invalid credentials (B4)' });
+        return res.status(401).json({ message: 'Invalid credentials (B5)' });
       }
 
       // Generate JWT
