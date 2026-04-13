@@ -46,7 +46,14 @@ const Login = ({ onLoginSuccess }) => {
   const getStatusMessage = () => {
     if (serverStatus === 'checking') return '🔄 Checking server...';
     if (serverStatus === 'connected') return '✅ Server connected';
-    return '❌ Server not running';
+    return (
+      <div>
+        ❌ Server not running
+        <div style={{ fontSize: '10px', marginTop: '5px', opacity: 0.8 }}>
+          Target: {process.env.REACT_APP_API_URL || 'https://audit-call-backend.vercel.app/api'}
+        </div>
+      </div>
+    );
   };
 
   return (
