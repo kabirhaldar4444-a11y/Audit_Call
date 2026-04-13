@@ -61,7 +61,7 @@ const Login = ({ onLoginSuccess }) => {
       <div className="login-card">
         <div className="login-logo-container">
           <h1 className="login-title">Call Audit System</h1>
-          <p className="login-subtitle">{isRegister ? 'Register' : 'Admin Login'} <span style={{ fontSize: '0.7em', color: '#999' }}>v2.0.2</span></p>
+          <p className="login-subtitle">{isRegister ? 'Register' : 'Admin Login'} <span style={{ fontSize: '0.7em', color: '#999' }}>v2.0.3</span></p>
         </div>
 
         <div className={`server-status ${serverStatus}`}>
