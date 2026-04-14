@@ -8,11 +8,17 @@ const connectDB = async () => {
     try {
       console.log(`🔄 Connecting to MongoDB (Attempt ${retryCount + 1}/${maxRetries})...`);
       
-      if (!process.env.MONGODB_URI || process.env.MONGODB_URI.includes('<db_password>')) {
-        throw new Error('MONGODB_URI is undefined or contains placeholders. Please add your connection string to Vercel/Environment Variables.');
+      // Fuzzy detection for environment variable typos
+      const uri = process.env.MONGODB_URI || 
+                  process.env.MONGO_URI || 
+                  process.env.MONGODB_URL || 
+                  process.env.DATABASE_URL;
+
+      if (!uri || uri.includes('<db_password>')) {
+        throw new Error('MONGODB_URI (or equivalent) is undefined in Vercel. Please check your spelling in Vercel Settings.');
       }
 
-      const conn = await mongoose.connect(process.env.MONGODB_URI, {
+      const conn = await mongoose.connect(uri, {
         useNewUrlParser: true,
         useUnifiedTopology: true,
         serverSelectionTimeoutMS: 5000,

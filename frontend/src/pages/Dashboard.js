@@ -59,7 +59,13 @@ const Dashboard = () => {
     try {
       const res = await api.get('/health');
       setDbStatus(res.data.database || 'disconnected');
-      setDbError(res.data.lastError || (res.data.uriPresent ? null : 'MONGODB_URI is UNDEFINED in Vercel settings'));
+      
+      let errorMsg = res.data.lastError;
+      if (!res.data.uriPresent) {
+        const keys = res.data.detectedKeys || [];
+        errorMsg = `MONGODB_URI is UNDEFINED. ${keys.length > 0 ? 'Detected similar keys: ' + keys.join(', ') : 'No database keys found in Vercel.'}`;
+      }
+      setDbError(errorMsg);
     } catch (err) {
       setDbStatus('error');
       setDbError('Could not reach backend health check');
