@@ -45,8 +45,7 @@ const callSchema = new mongoose.Schema(
       type: String,
     },
     uploadedBy: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'User',
+      type: String,
       required: true,
     },
     status: {
