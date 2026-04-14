@@ -29,6 +29,7 @@ const Dashboard = () => {
     limit: 20
   });
   const [debouncedFilters, setDebouncedFilters] = useState(filters);
+  const [dbStatus, setDbStatus] = useState('checking');
 
   const handleStatusUpdate = async (id, newStatus) => {
     try {
@@ -51,6 +52,22 @@ const Dashboard = () => {
     }, 500);
     return () => clearTimeout(timer);
   }, [filters]);
+
+  // Check database health
+  const checkHealth = async () => {
+    try {
+      const res = await api.get('/health');
+      setDbStatus(res.data.database || 'disconnected');
+    } catch (err) {
+      setDbStatus('error');
+    }
+  };
+
+  useEffect(() => {
+    checkHealth();
+    const interval = setInterval(checkHealth, 10000);
+    return () => clearInterval(interval);
+  }, []);
 
 
   const [loading, setLoading] = useState(true);
@@ -247,9 +264,14 @@ const Dashboard = () => {
   return (
     <div className="dashboard-container">
       <div className="dashboard-header">
-        <div>
-          <h2>Dashboard</h2>
-          <p>Welcome to Call Audit System</p>
+        <div className="header-left">
+          <h1>Call Audit Dashboard</h1>
+          <div className={`connection-badge ${dbStatus}`}>
+            <span className="pulse-dot"></span>
+            {dbStatus === 'connected' ? 'Cloud Connected' : 
+             dbStatus === 'disconnected' || dbStatus === 'error' ? 'Database Disconnected' : 
+             'Checking Connection...'}
+          </div>
         </div>
         {uploadStatus && (
           <div className={`status-banner ${uploadStatus.type}`}>

@@ -14,17 +14,77 @@
   margin-bottom: 30px;
 }
 
-.dashboard-header h2 {
-  margin: 0 0 5px 0;
-  font-size: 28px;
+.dashboard-header h1 {
+  margin: 0;
+  font-size: 24px;
   color: #1a1a1a;
   font-weight: 700;
 }
 
-.dashboard-header p {
-  margin: 0;
-  color: #6c757d;
-  font-size: 14px;
+.header-left {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* Connection Status Badge */
+.connection-badge {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  width: fit-content;
+  transition: all 0.3s ease;
+}
+
+.connection-badge.connected {
+  background: #e6fffa;
+  color: #047481;
+  border: 1px solid #b2f5ea;
+}
+
+.connection-badge.disconnected, 
+.connection-badge.error {
+  background: #fff5f5;
+  color: #c53030;
+  border: 1px solid #fed7d7;
+}
+
+.connection-badge.checking {
+  background: #f7fafc;
+  color: #4a5568;
+  border: 1px solid #edf2f7;
+}
+
+.pulse-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  position: relative;
+}
+
+.connected .pulse-dot { background: #38b2ac; }
+.disconnected .pulse-dot, .error .pulse-dot { background: #e53e3e; }
+.checking .pulse-dot { background: #a0aec0; }
+
+.connected .pulse-dot::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background: inherit;
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0% { transform: scale(1); opacity: 0.8; }
+  100% { transform: scale(3); opacity: 0; }
 }
 
 /* Status Banner */
