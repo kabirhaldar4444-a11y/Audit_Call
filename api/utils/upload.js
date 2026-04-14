@@ -25,15 +25,8 @@ const audioStorage = multer.diskStorage({
   },
 });
 
-// Configure storage for data files (Excel/CSV)
-const dataStorage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, 'uploads/data');
-  },
-  filename: (req, file, cb) => {
-    cb(null, 'data-' + Date.now() + path.extname(file.originalname));
-  },
-});
+// Configure storage for data files (Excel/CSV) - Use memory for Vercel compatibility
+const dataStorage = multer.memoryStorage();
 
 const audioUpload = multer({
   storage: audioStorage,

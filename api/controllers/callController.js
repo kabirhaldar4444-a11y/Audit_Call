@@ -121,7 +121,7 @@ const uploadCallData = async (req, res) => {
       return res.status(400).json({ message: 'Please upload an Excel or CSV file' });
     }
 
-    const workbook = xlsx.readFile(req.file.path);
+    const workbook = xlsx.read(req.file.buffer, { type: 'buffer' });
     const sheetName = workbook.SheetNames[0];
     const sheet = workbook.Sheets[sheetName];
     const data = xlsx.utils.sheet_to_json(sheet);

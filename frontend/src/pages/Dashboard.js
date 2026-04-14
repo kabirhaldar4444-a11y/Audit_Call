@@ -172,10 +172,11 @@ const Dashboard = () => {
       if (success > 0) {
         setUploadStatus({ type: 'success', message: `Successfully uploaded ${success} of ${total} records.` });
       } else if (total > 0) {
-        setUploadStatus({ type: 'error', message: `Failed to process records. Please check your column headers (e.g., "Call ID", "Agent Name", "Date").` });
-        console.error('Upload errors:', errors);
+        // Show the first error from the backend if available
+        const errorDetail = response.data?.data?.errors?.[0] || 'Please check your column headers or data format.';
+        setUploadStatus({ type: 'error', message: `Failed to process records: ${errorDetail}` });
       } else {
-        setUploadStatus({ type: 'warning', message: 'No records found in the uploaded file.' });
+        setUploadStatus({ type: 'error', message: 'No records found in the file.' });
       }
       
       // Refresh handled in finally
@@ -285,13 +286,7 @@ const Dashboard = () => {
       </div>
 
       <div className="upload-container">
-        <div className="upload-header-row">
-          <h3><span className="icon">☁️</span> Upload Call Data</h3>
-          <div className="header-info-tag">
-            <strong>Supported Excel Headers:</strong> 
-            <span>SL NO, CALL ID, AGENT, PROCESS, DATE & TIME, DURATION, AGENT EMAIL</span>
-          </div>
-        </div>
+        <h3><span className="icon">☁️</span> Upload Call Data</h3>
         <div className="upload-grid">
           <div className="upload-box" onClick={() => dataFilesInput.current.click()}>
             <input 
