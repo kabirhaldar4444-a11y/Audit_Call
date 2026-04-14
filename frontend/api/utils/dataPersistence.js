@@ -70,6 +70,48 @@ function saveToLocalFile(callData) {
 }
 
 /**
+ * Save multiple call records to local JSON file efficiently
+ */
+function saveManyToLocalFile(newCallsArray) {
+  try {
+    if (!newCallsArray || !Array.isArray(newCallsArray) || newCallsArray.length === 0) {
+      return;
+    }
+
+    let allCalls = [];
+    if (fs.existsSync(dataStorePath)) {
+      try {
+        const content = fs.readFileSync(dataStorePath, 'utf8');
+        allCalls = JSON.parse(content || '[]');
+      } catch (parseError) {
+        console.error('Error parsing local file, starting with empty array:', parseError);
+        allCalls = [];
+      }
+    }
+
+    // Use a Map for faster lookups during merging
+    const callMap = new Map(allCalls.map(c => [c.callId, c]));
+    
+    // Add/Update new records
+    newCallsArray.forEach(call => {
+      if (call.callId) {
+        callMap.set(call.callId, { ...(callMap.get(call.callId) || {}), ...call });
+      }
+    });
+
+    const updatedCalls = Array.from(callMap.values());
+    
+    // Write once
+    fs.writeFileSync(dataStorePath, JSON.stringify(updatedCalls, null, 2));
+    console.log(`📁 Bulk data saved locally: ${newCallsArray.length} records processed.`);
+    return true;
+  } catch (error) {
+    console.error('Error in bulk saving to local file:', error);
+    return false;
+  }
+}
+
+/**
  * Get all calls from MongoDB or local file if offline
  */
 async function getAllCalls(Call, filters = {}) {
@@ -167,6 +209,7 @@ module.exports = {
   saveCallData,
   getAllCalls,
   saveToLocalFile,
+  saveManyToLocalFile,
   getCallsFromLocalFile,
   syncLocalDataToMongoDB,
   getDataStorePath: () => dataStorePath

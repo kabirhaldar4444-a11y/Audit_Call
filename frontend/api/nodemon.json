@@ -1,0 +1,10 @@
+{
+  "ignore": [
+    "uploads/*",
+    "data/*",
+    "node_modules/*",
+    "*.log"
+  ],
+  "ext": "js,json",
+  "delay": "2500"
+}

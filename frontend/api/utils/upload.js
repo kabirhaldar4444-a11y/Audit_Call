@@ -14,7 +14,7 @@ const audioUpload = multer({
     }
   },
   limits: {
-    fileSize: 5 * 1024 * 1024 // 5MB limit for Vercel functions
+    fileSize: 25 * 1024 * 1024 // 25MB limit
   }
 });
 
@@ -29,7 +29,7 @@ const dataUpload = multer({
     cb(new Error('Only Excel and CSV files are allowed!'));
   },
   limits: {
-    fileSize: 5 * 1024 * 1024 // 5MB limit for Vercel functions
+    fileSize: 25 * 1024 * 1024 // 25MB limit
   }
 });
 
