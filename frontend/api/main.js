@@ -58,10 +58,6 @@ app.get('/', (req, res) => {
   });
 });
 
-// Health checks
-app.get('/health', (req, res) => res.status(200).json({ message: 'Server is running' }));
-app.get('/api/health', (req, res) => res.status(200).json({ message: 'Server is running' }));
-
 // Error handling middleware
 app.use((err, req, res, next) => {
   console.error(err.stack);
