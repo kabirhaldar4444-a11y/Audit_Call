@@ -345,6 +345,9 @@ const uploadAudio = async (req, res) => {
 
 const getDashboardStats = async (req, res) => {
   try {
+    const last7Days = new Date();
+    last7Days.setDate(last7Days.getDate() - 7);
+
     const [totalCalls, pendingCalls, auditedCalls, callsInLast7Days] = await Promise.all([
       Call.countDocuments({ isActive: true }),
       Call.countDocuments({ status: 'pending', isActive: true }),
