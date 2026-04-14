@@ -31,6 +31,7 @@ const Dashboard = () => {
   const [debouncedFilters, setDebouncedFilters] = useState(filters);
   const [dbStatus, setDbStatus] = useState('checking');
   const [dbError, setDbError] = useState(null);
+  const [apiVersion, setApiVersion] = useState(null);
 
   const handleStatusUpdate = async (id, newStatus) => {
     try {
@@ -59,6 +60,7 @@ const Dashboard = () => {
     try {
       const res = await api.get('/health');
       setDbStatus(res.data.database || 'disconnected');
+      setApiVersion(res.data.version || 'v1.0 (Old)');
       
       let errorMsg = res.data.lastError;
       if (!res.data.uriPresent) {
@@ -277,8 +279,8 @@ const Dashboard = () => {
           <h1>Call Audit Dashboard</h1>
           <div className={`connection-badge ${dbStatus}`} title={dbError || ''}>
             <span className="pulse-dot"></span>
-            {dbStatus === 'connected' ? 'Cloud Connected' : 
-             dbStatus === 'disconnected' || dbStatus === 'error' ? `Database Disconnected: ${dbError || 'Unknown Error'}` : 
+            {dbStatus === 'connected' ? `Cloud Connected (${apiVersion})` : 
+             dbStatus === 'disconnected' || dbStatus === 'error' ? `Database Disconnected: ${dbError || 'Unknown Error'} (${apiVersion})` : 
              'Checking Connection...'}
           </div>
         </div>

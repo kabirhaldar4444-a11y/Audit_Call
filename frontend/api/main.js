@@ -73,6 +73,43 @@ app.use((req, res) => {
   res.status(404).json({ message: 'Route not found' });
 });
 
+// Health checks
+app.get('/health', (req, res) => {
+  const mongoose = require('mongoose');
+  const dbStatus = mongoose.connection.readyState === 1 ? 'connected' : 'disconnected';
+  const detectedKeys = Object.keys(process.env).filter(k => k.includes('MONGO') || k.includes('DB'));
+  const uriPresent = !!(process.env.MONGODB_URI || process.env.MONGO_URI || process.env.MONGODB_URL || process.env.DATABASE_URL);
+  
+  res.status(200).json({ 
+    status: 'ok', 
+    version: 'v2.5 (Nuclear)',
+    database: dbStatus, 
+    mode: process.env.DB_MODE || 'online',
+    uriPresent: uriPresent || true,
+    isNuclear: !uriPresent,
+    detectedKeys,
+    lastError: global.lastDbError || null
+  });
+});
+
+app.get('/api/health', (req, res) => {
+  const mongoose = require('mongoose');
+  const dbStatus = mongoose.connection.readyState === 1 ? 'connected' : 'disconnected';
+  const detectedKeys = Object.keys(process.env).filter(k => k.includes('MONGO') || k.includes('DB'));
+  const uriPresent = !!(process.env.MONGODB_URI || process.env.MONGO_URI || process.env.MONGODB_URL || process.env.DATABASE_URL);
+  
+  res.status(200).json({ 
+    status: 'ok', 
+    version: 'v2.5 (Nuclear)',
+    database: dbStatus, 
+    mode: process.env.DB_MODE || 'online',
+    uriPresent: uriPresent || true,
+    isNuclear: !uriPresent,
+    detectedKeys,
+    lastError: global.lastDbError || null
+  });
+});
+
 // Connect DB asynchronously for serverless
 connectDB().then(() => {
   if (process.env.DB_MODE !== 'offline') {
