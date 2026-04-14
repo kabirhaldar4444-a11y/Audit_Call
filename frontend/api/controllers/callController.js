@@ -35,12 +35,15 @@ const getAllCalls = async (req, res) => {
     const sortOrder = req.query.sortOrder === 'asc' ? 1 : -1;
     const sort = { [sortField]: sortOrder };
 
-    const total = await Call.countDocuments(filter);
-    const calls = await Call.find(filter)
-      .populate('uploadedBy', 'username email')
-      .sort(sort)
-      .skip(skip)
-      .limit(limit);
+    const [total, calls] = await Promise.all([
+      Call.countDocuments(filter),
+      Call.find(filter)
+        .populate('uploadedBy', 'username email')
+        .sort(sort)
+        .skip(skip)
+        .limit(limit)
+        .lean()
+    ]);
 
     res.status(200).json({
       message: 'Calls retrieved successfully',
@@ -321,17 +324,15 @@ const uploadAudio = async (req, res) => {
 
 const getDashboardStats = async (req, res) => {
   try {
-    const totalCalls = await Call.countDocuments({ isActive: true });
-    const pendingCalls = await Call.countDocuments({ status: 'pending', isActive: true });
-    const auditedCalls = await Call.countDocuments({ status: 'audited', isActive: true });
-    
-    // Get recent calls grouped by date
-    const last7Days = new Date();
-    last7Days.setDate(last7Days.getDate() - 7);
-    const callsInLast7Days = await Call.countDocuments({ 
-      date: { $gte: last7Days },
-      isActive: true 
-    });
+    const [totalCalls, pendingCalls, auditedCalls, callsInLast7Days] = await Promise.all([
+      Call.countDocuments({ isActive: true }),
+      Call.countDocuments({ status: 'pending', isActive: true }),
+      Call.countDocuments({ status: 'audited', isActive: true }),
+      Call.countDocuments({ 
+        date: { $gte: last7Days },
+        isActive: true 
+      })
+    ]);
     
     res.status(200).json({ 
       message: 'Dashboard stats retrieved successfully', 
@@ -408,12 +409,15 @@ const getCallsByDateRange = async (req, res) => {
       filter.status = req.query.status;
     }
 
-    const total = await Call.countDocuments(filter);
-    const calls = await Call.find(filter)
-      .populate('uploadedBy', 'username email')
-      .sort({ date: -1 })
-      .skip(skip)
-      .limit(limit);
+    const [total, calls] = await Promise.all([
+      Call.countDocuments(filter),
+      Call.find(filter)
+        .populate('uploadedBy', 'username email')
+        .sort({ date: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean()
+    ]);
 
     res.status(200).json({
       message: 'Calls retrieved by date range successfully',
