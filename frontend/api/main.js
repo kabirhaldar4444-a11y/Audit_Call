@@ -25,8 +25,28 @@ const app = express();
 app.use(cors({ origin: '*', credentials: true }));
 app.use(express.json({ limit: '1gb' }));
 app.use(express.urlencoded({ limit: '1gb', extended: true }));
+// Clear static uploads if needed (handled by separate route)
 
-// Static files for uploads
+// --- CONNECTION SHIELD MIDDLEWARE ---
+// Ensures the database is FULLY connected before any request proceeds.
+// This prevents "race conditions" where requests hit Vercel while DB is still connecting.
+app.use(async (req, res, next) => {
+  const mongoose = require('mongoose');
+  if (mongoose.connection.readyState !== 1) {
+    console.log('🛡️ Shield: Database not ready. Waiting for connection...');
+    try {
+      await connectDB();
+      console.log('🛡️ Shield: Database connection established.');
+    } catch (err) {
+      console.error('🛡️ Shield Error:', err.message);
+      return res.status(503).json({ 
+        message: 'Database connection in progress. Please try again in a few seconds.',
+        error: err.message 
+      });
+    }
+  }
+  next();
+});
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Routes

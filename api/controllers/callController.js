@@ -264,8 +264,9 @@ const uploadCallData = async (req, res) => {
           }));
           
           const bulkResult = await Call.bulkWrite(bulkOps, { ordered: false });
-          results.success = (bulkResult.upsertedCount || 0) + (bulkResult.modifiedCount || 0) + (bulkResult.matchedCount || 0);
-          console.log(`✅ Bulk Database Save: ${results.success} records processed.`);
+          // Correct counting: upserted + matched (matched includes modified)
+          results.success = (bulkResult.upsertedCount || 0) + (bulkResult.matchedCount || 0);
+          console.log(`✅ Bulk Database Save: ${results.success} records processed (New: ${bulkResult.upsertedCount}, Updated: ${bulkResult.modifiedCount}).`);
         } catch (dbErr) {
           console.error('❌ MongoDB Bulk Save failed:', dbErr.message);
           // Vercel fallback is impossible (read-only), so we report the REAL error
