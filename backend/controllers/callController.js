@@ -156,6 +156,10 @@ const uploadCallData = async (req, res) => {
           normalizedRow['id'] || 
           normalizedRow['s no'] || 
           normalizedRow['serial number'] || 
+          normalizedRow['serial no'] || 
+          normalizedRow['sl no'] || 
+          normalizedRow['uid'] || 
+          normalizedRow['record id'] || 
           normalizedRow['lead id'] ||
           Object.values(row)[0];
 
@@ -176,11 +180,30 @@ const uploadCallData = async (req, res) => {
         seenIdsInBatch.add(uniqueCallId);
 
         // Map fields
-        const agentName = String(normalizedRow['agent full name'] || normalizedRow['agent name'] || normalizedRow['agent'] || normalizedRow['agentname'] || normalizedRow['staff'] || 'Unknown Agent').trim();
-        const agentEmail = String(normalizedRow['agent email'] || normalizedRow['email'] || normalizedRow['agentemail'] || '').toLowerCase().trim();
-        const processName = String(normalizedRow['process'] || normalizedRow['dept'] || normalizedRow['department'] || 'General').trim();
+        const agentName = String(
+          normalizedRow['agent full name'] || 
+          normalizedRow['agent name'] || 
+          normalizedRow['agent'] || 
+          normalizedRow['agentname'] || 
+          normalizedRow['staff'] || 
+          normalizedRow['caller'] || 
+          normalizedRow['user'] || 
+          'Unknown Agent'
+        ).trim();
+        const agentEmail = String(normalizedRow['agent email'] || normalizedRow['email'] || normalizedRow['agentemail'] || normalizedRow['email id'] || '').toLowerCase().trim();
+        const processName = String(normalizedRow['process'] || normalizedRow['dept'] || normalizedRow['department'] || normalizedRow['campaign'] || 'General').trim();
         
-        const dateStr = (normalizedRow['date'] || normalizedRow['date time'] || normalizedRow['date & time'] || normalizedRow['timestamp'] || normalizedRow['time'] || normalizedRow['date-time'] || new Date().toISOString()).toString().trim();
+        const dateStr = (
+          normalizedRow['date'] || 
+          normalizedRow['date time'] || 
+          normalizedRow['date & time'] || 
+          normalizedRow['timestamp'] || 
+          normalizedRow['time'] || 
+          normalizedRow['date-time'] || 
+          normalizedRow['call date'] || 
+          normalizedRow['transaction date'] || 
+          new Date().toISOString()
+        ).toString().trim();
         const date = new Date(dateStr);
         const finalDate = isNaN(date.getTime()) ? new Date() : date;
 
@@ -232,7 +255,7 @@ const uploadCallData = async (req, res) => {
           }));
           
           const bulkResult = await Call.bulkWrite(bulkOps, { ordered: false });
-          results.success = bulkResult.upsertedCount + bulkResult.modifiedCount + bulkResult.matchedCount;
+          results.success = (bulkResult.upsertedCount || 0) + (bulkResult.modifiedCount || 0) + (bulkResult.matchedCount || 0);
         } catch (dbErr) {
           console.error('⚠️ MongoDB Bulk Save failed, falling back to local:', dbErr.message);
           // Fallback to local on DB error
