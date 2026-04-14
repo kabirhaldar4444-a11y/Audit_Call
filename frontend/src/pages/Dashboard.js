@@ -171,8 +171,12 @@ const Dashboard = () => {
       
       // Refresh handled in finally
     } catch (error) {
-
-      setUploadStatus({ type: 'error', message: error.response?.data?.message || 'Error uploading data' });
+      console.error('❌ Data Upload Error:', error);
+      const errorMsg = error.response?.data?.message || error.message || 'Error uploading data';
+      setUploadStatus({ 
+        type: 'error', 
+        message: errorMsg === 'Network Error' ? 'Network Error: The server might have restarted or the file is too large for the connection.' : errorMsg
+      });
     } finally {
       setUploading(false);
       // Brief delay to allow DB indexing to complete for large datasets
@@ -213,7 +217,12 @@ const Dashboard = () => {
       setUploadStatus({ type: 'success', message: `Audio uploaded! ${response.data.data.success} files matched.` });
       fetchData();
     } catch (error) {
-      setUploadStatus({ type: 'error', message: error.response?.data?.message || 'Error uploading audio' });
+      console.error('❌ Audio Upload Error:', error);
+      const errorMsg = error.response?.data?.message || error.message || 'Error uploading audio';
+      setUploadStatus({ 
+        type: 'error', 
+        message: errorMsg === 'Network Error' ? 'Network Error: The server might have restarted or files are too large.' : errorMsg
+      });
     } finally {
       setUploading(false);
       fetchData();
