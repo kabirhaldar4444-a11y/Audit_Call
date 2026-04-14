@@ -7,6 +7,11 @@ const connectDB = async () => {
   while (retryCount < maxRetries) {
     try {
       console.log(`🔄 Connecting to MongoDB (Attempt ${retryCount + 1}/${maxRetries})...`);
+      
+      if (!process.env.MONGODB_URI || process.env.MONGODB_URI.includes('<db_password>')) {
+        throw new Error('MONGODB_URI is undefined or contains placeholders. Please add your connection string to Vercel/Environment Variables.');
+      }
+
       const conn = await mongoose.connect(process.env.MONGODB_URI, {
         useNewUrlParser: true,
         useUnifiedTopology: true,
@@ -20,19 +25,15 @@ const connectDB = async () => {
       console.error(`❌ MongoDB Connection Error: ${error.message}`);
       
       if (retryCount >= maxRetries) {
-        console.error('\n⚠️  MONGODB CONNECTION FAILED - FALLING BACK TO LOCAL MODE');
+        console.error('\n⚠️  MONGODB CONNECTION FAILED');
         console.error('--------------------------------------------------');
-        console.error('Data will be stored locally but NOT persisted to the cloud.');
         console.error('To fix this:');
         console.error('1. Go to: https://cloud.mongodb.com/');
         console.error('2. Navigate to: Security -> Network Access');
         console.error('3. Click: "+ ADD IP ADDRESS"');
         console.error('4. Select "ALLOW ACCESS FROM ANYWHERE" (for development)');
-        console.error('5. Restart the server');
         console.error('--------------------------------------------------\n');
         
-        // Set a flag indicating we're in offline mode
-        process.env.DB_MODE = 'offline';
         return null;
       }
       
