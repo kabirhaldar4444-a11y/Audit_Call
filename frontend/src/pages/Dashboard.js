@@ -167,7 +167,7 @@ const Dashboard = () => {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
       
-      const { success, total, errors } = response.data.data;
+      const { success, total } = response.data?.data || {};
       
       if (success > 0) {
         setUploadStatus({ type: 'success', message: `Successfully uploaded ${success} of ${total} records.` });
