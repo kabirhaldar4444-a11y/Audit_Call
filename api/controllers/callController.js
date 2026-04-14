@@ -150,15 +150,14 @@ const uploadCallData = async (req, res) => {
           normalizedRow[normalizedKey] = row[key];
         });
 
-        // Robust Call ID extraction
+        // Robust Call ID extraction - prioritize user's CALL ID header
         const rawCallId = 
           normalizedRow['call id'] || 
           normalizedRow['callid'] || 
-          normalizedRow['id'] || 
-          normalizedRow['s no'] || 
-          normalizedRow['serial number'] || 
-          normalizedRow['serial no'] || 
           normalizedRow['sl no'] || 
+          normalizedRow['serial no'] || 
+          normalizedRow['slno'] || 
+          normalizedRow['id'] || 
           normalizedRow['uid'] || 
           normalizedRow['record id'] || 
           normalizedRow['lead id'] ||
@@ -181,10 +180,11 @@ const uploadCallData = async (req, res) => {
         seenIdsInBatch.add(uniqueCallId);
 
         // Map fields
+        // Map fields - prioritize exact user headers
         const agentName = String(
-          normalizedRow['agent full name'] || 
-          normalizedRow['agent name'] || 
           normalizedRow['agent'] || 
+          normalizedRow['agent name'] || 
+          normalizedRow['agent full name'] || 
           normalizedRow['agentname'] || 
           normalizedRow['staff'] || 
           normalizedRow['caller'] || 
@@ -195,9 +195,9 @@ const uploadCallData = async (req, res) => {
         const processName = String(normalizedRow['process'] || normalizedRow['dept'] || normalizedRow['department'] || normalizedRow['campaign'] || 'General').trim();
         
         const dateStr = (
-          normalizedRow['date'] || 
-          normalizedRow['date time'] || 
           normalizedRow['date & time'] || 
+          normalizedRow['date time'] || 
+          normalizedRow['date'] || 
           normalizedRow['timestamp'] || 
           normalizedRow['time'] || 
           normalizedRow['date-time'] || 
@@ -209,7 +209,15 @@ const uploadCallData = async (req, res) => {
         const finalDate = isNaN(date.getTime()) ? new Date() : date;
 
         const phoneNumber = String(normalizedRow['phone number'] || normalizedRow['phone'] || normalizedRow['customer number'] || normalizedRow['mobile'] || '').trim();
-        const duration = String(normalizedRow['talktime'] || normalizedRow['talk time'] || normalizedRow['duration'] || normalizedRow['call duration'] || normalizedRow['call time'] || normalizedRow['length'] || '').trim();
+        const duration = String(
+          normalizedRow['duration'] || 
+          normalizedRow['talktime'] || 
+          normalizedRow['talk time'] || 
+          normalizedRow['call duration'] || 
+          normalizedRow['call time'] || 
+          normalizedRow['length'] || 
+          ''
+        ).trim();
         const remarks = String(normalizedRow['remarks'] || normalizedRow['comment'] || normalizedRow['comment'] || '').trim();
         const customerName = String(normalizedRow['customer name'] || normalizedRow['customer'] || '').trim();
         const recordingPath = String(normalizedRow['recording path'] || normalizedRow['audio link'] || normalizedRow['audio url'] || normalizedRow['recording link'] || '').trim();

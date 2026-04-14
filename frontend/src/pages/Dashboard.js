@@ -285,7 +285,13 @@ const Dashboard = () => {
       </div>
 
       <div className="upload-container">
-        <h3><span className="icon">☁️</span> Upload Call Data</h3>
+        <div className="upload-header-row">
+          <h3><span className="icon">☁️</span> Upload Call Data</h3>
+          <div className="header-info-tag">
+            <strong>Supported Excel Headers:</strong> 
+            <span>SL NO, CALL ID, AGENT, PROCESS, DATE & TIME, DURATION, AGENT EMAIL</span>
+          </div>
+        </div>
         <div className="upload-grid">
           <div className="upload-box" onClick={() => dataFilesInput.current.click()}>
             <input 
