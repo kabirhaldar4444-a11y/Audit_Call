@@ -62,13 +62,27 @@ app.get('/', (req, res) => {
 app.get('/health', (req, res) => {
   const mongoose = require('mongoose');
   const dbStatus = mongoose.connection.readyState === 1 ? 'connected' : 'disconnected';
-  res.status(200).json({ status: 'ok', database: dbStatus, mode: process.env.DB_MODE || 'online' });
+  res.status(200).json({ 
+    status: 'ok', 
+    database: dbStatus, 
+    mode: process.env.DB_MODE || 'online',
+    uriPresent: !!process.env.MONGODB_URI,
+    lastError: global.lastDbError || null,
+    lastAttempt: global.lastDbAttempt || null
+  });
 });
 
 app.get('/api/health', (req, res) => {
   const mongoose = require('mongoose');
   const dbStatus = mongoose.connection.readyState === 1 ? 'connected' : 'disconnected';
-  res.status(200).json({ status: 'ok', database: dbStatus, mode: process.env.DB_MODE || 'online' });
+  res.status(200).json({ 
+    status: 'ok', 
+    database: dbStatus, 
+    mode: process.env.DB_MODE || 'online',
+    uriPresent: !!process.env.MONGODB_URI,
+    lastError: global.lastDbError || null,
+    lastAttempt: global.lastDbAttempt || null
+  });
 });
 
 // Error handling middleware

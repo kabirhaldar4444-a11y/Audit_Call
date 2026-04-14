@@ -1,11 +1,16 @@
 const mongoose = require('mongoose');
 
+// Global diagnostic tracking
+global.lastDbError = null;
+global.lastDbAttempt = null;
+
 const connectDB = async () => {
   const maxRetries = 3;
   let retryCount = 0;
 
   while (retryCount < maxRetries) {
     try {
+      global.lastDbAttempt = new Date().toISOString();
       console.log(`🔄 Connecting to MongoDB (Attempt ${retryCount + 1}/${maxRetries})...`);
       
       if (!process.env.MONGODB_URI || process.env.MONGODB_URI.includes('<db_password>')) {
@@ -17,7 +22,10 @@ const connectDB = async () => {
         useUnifiedTopology: true,
         serverSelectionTimeoutMS: 5000,
       });
+      return conn;
+    } catch (error) {
       retryCount++;
+      global.lastDbError = error.message;
       console.error(`❌ MongoDB Connection Error: ${error.message}`);
       
       if (retryCount >= maxRetries) {

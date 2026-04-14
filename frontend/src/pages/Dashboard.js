@@ -30,6 +30,7 @@ const Dashboard = () => {
   });
   const [debouncedFilters, setDebouncedFilters] = useState(filters);
   const [dbStatus, setDbStatus] = useState('checking');
+  const [dbError, setDbError] = useState(null);
 
   const handleStatusUpdate = async (id, newStatus) => {
     try {
@@ -58,8 +59,10 @@ const Dashboard = () => {
     try {
       const res = await api.get('/health');
       setDbStatus(res.data.database || 'disconnected');
+      setDbError(res.data.lastError || (res.data.uriPresent ? null : 'MONGODB_URI is UNDEFINED in Vercel settings'));
     } catch (err) {
       setDbStatus('error');
+      setDbError('Could not reach backend health check');
     }
   };
 
@@ -266,10 +269,10 @@ const Dashboard = () => {
       <div className="dashboard-header">
         <div className="header-left">
           <h1>Call Audit Dashboard</h1>
-          <div className={`connection-badge ${dbStatus}`}>
+          <div className={`connection-badge ${dbStatus}`} title={dbError || ''}>
             <span className="pulse-dot"></span>
             {dbStatus === 'connected' ? 'Cloud Connected' : 
-             dbStatus === 'disconnected' || dbStatus === 'error' ? 'Database Disconnected' : 
+             dbStatus === 'disconnected' || dbStatus === 'error' ? `Database Disconnected: ${dbError || 'Unknown Error'}` : 
              'Checking Connection...'}
           </div>
         </div>
