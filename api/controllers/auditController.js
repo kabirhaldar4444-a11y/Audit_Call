@@ -71,7 +71,8 @@ const getAllAudits = async (req, res) => {
     const audits = await Audit.find()
       .populate('callId')
       .populate('auditorId', 'username email')
-      .sort({ createdAt: -1 });
+      .sort({ createdAt: -1 })
+      .lean();
 
     res.status(200).json({
       message: 'Audits retrieved successfully',
