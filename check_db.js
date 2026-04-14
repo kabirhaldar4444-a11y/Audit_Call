@@ -1,47 +1,26 @@
 const mongoose = require('mongoose');
-const dotenv = require('dotenv');
-const path = require('path');
 
-// Load .env from the backend directory
-dotenv.config({ path: path.join(__dirname, 'backend', '.env') });
+const uri = 'mongodb+srv://kabirhaldar4444_db_user:uSyMCuiQb4N8oLaP@cluster0.uzfncp6.mongodb.net/call_audit?retryWrites=true&w=majority&appName=Cluster0';
 
-// We need to require the model. Let's check where it is.
-const Call = require('./backend/models/Call');
+console.log('🔄 Testing MongoDB Atlas connection...');
 
-const checkDB = async () => {
-  try {
-    console.log('Connecting to:', process.env.MONGODB_URI);
-    await mongoose.connect(process.env.MONGODB_URI);
-    console.log('Connected!');
-    
-    // Check which database is being used
-    console.log('Using database:', mongoose.connection.db.databaseName);
-
-    const count = await Call.countDocuments();
-    console.log('Total calls in DB:', count);
-    
-    const activeCount = await Call.countDocuments({ isActive: true });
-    console.log('Active calls in DB:', activeCount);
-
-    const sample = await Call.findOne();
-    if (sample) {
-        console.log('Sample data found:');
-        console.log('Call ID:', sample.callId);
-        console.log('IsActive:', sample.isActive);
-        console.log('Agent:', sample.agentName);
-    } else {
-        console.log('No records found in "calls" collection.');
-        
-        // Let's check all collections
-        const collections = await mongoose.connection.db.listCollections().toArray();
-        console.log('Available collections:', collections.map(c => c.name));
-    }
-
-    process.exit(0);
-  } catch (err) {
-    console.error('Error:', err);
-    process.exit(1);
+mongoose.connect(uri, {
+  useNewUrlParser: true,
+  useUnifiedTopology: true,
+  serverSelectionTimeoutMS: 5000
+})
+.then(() => {
+  console.log('✅ SUCCESS: Connected to MongoDB Atlas!');
+  process.exit(0);
+})
+.catch(err => {
+  console.error('❌ FAILURE: Connection failed!');
+  console.error('Error:', err.message);
+  
+  if (err.message.includes('IP address')) {
+    console.log('\n💡 CAUSE: Your current IP address is not whitelisted in MongoDB Atlas.');
+    console.log('Please add 0.0.0.0/0 to your MongoDB Atlas Network Access.');
   }
-};
-
-checkDB();
+  
+  process.exit(1);
+});
