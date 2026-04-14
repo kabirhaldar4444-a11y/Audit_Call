@@ -502,7 +502,7 @@ const Dashboard = () => {
 
       {selectedAudio && (
         <AudioPlayer 
-          audioUrl={selectedAudio.url.startsWith('http') ? selectedAudio.url : `${process.env.REACT_APP_API_URL.replace('/api', '')}${selectedAudio.url}`} 
+          audioUrl={selectedAudio.url.startsWith('http') ? selectedAudio.url : `${(process.env.REACT_APP_API_URL || '').replace('/api', '')}${selectedAudio.url}`} 
           callInfo={selectedAudio.call}
           onClose={() => setSelectedAudio(null)} 
         />
