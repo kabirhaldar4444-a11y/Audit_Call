@@ -2,7 +2,7 @@ const Call = require('../models/Call');
 const fs = require('fs');
 const path = require('path');
 const xlsx = require('xlsx');
-const { saveToLocalFile } = require('../utils/dataPersistence');
+const { saveToLocalFile, saveManyToLocalFile } = require('../utils/dataPersistence');
 
 const getAllCalls = async (req, res) => {
   try {
@@ -132,8 +132,14 @@ const uploadCallData = async (req, res) => {
     };
 
     const seenIdsInBatch = new Set();
+    const callsToSave = [];
+    const isOffline = process.env.DB_MODE === 'offline' || !Call.db || Call.db.readyState !== 1;
+    const batchTimestamp = Date.now();
+    
+    console.log(`📡 [Root API] Upload request received. Rows: ${data.length}, DB: ${isOffline ? 'OFFLINE' : 'ONLINE'}`);
 
-    for (const row of data) {
+    for (let i = 0; i < data.length; i++) {
+      const row = data[i];
       try {
         const normalizedRow = {};
         Object.keys(row).forEach(key => {
@@ -141,6 +147,7 @@ const uploadCallData = async (req, res) => {
           normalizedRow[normalizedKey] = row[key];
         });
 
+        // Robust Call ID extraction
         const rawCallId = 
           normalizedRow['call id'] || 
           normalizedRow['callid'] || 
@@ -153,9 +160,11 @@ const uploadCallData = async (req, res) => {
         let callId = String(rawCallId || '').trim();
 
         if (!callId) {
-          callId = `GEN-${Date.now()}`;
+          // Unique ID for the batch: timestamp-index
+          callId = `GEN-${batchTimestamp}-${i}`;
         }
 
+        // Prevent collisions within this upload batch
         let uniqueCallId = callId;
         let counter = 1;
         while (seenIdsInBatch.has(uniqueCallId)) {
@@ -164,6 +173,7 @@ const uploadCallData = async (req, res) => {
         }
         seenIdsInBatch.add(uniqueCallId);
 
+        // Map fields
         const agentName = String(normalizedRow['agent full name'] || normalizedRow['agent name'] || normalizedRow['agent'] || normalizedRow['agentname'] || normalizedRow['staff'] || 'Unknown Agent').trim();
         const agentEmail = String(normalizedRow['agent email'] || normalizedRow['email'] || normalizedRow['agentemail'] || '').toLowerCase().trim();
         const processName = String(normalizedRow['process'] || normalizedRow['dept'] || normalizedRow['department'] || 'General').trim();
@@ -178,7 +188,7 @@ const uploadCallData = async (req, res) => {
         const customerName = String(normalizedRow['customer name'] || normalizedRow['customer'] || '').trim();
         const recordingPath = String(normalizedRow['recording path'] || normalizedRow['audio link'] || normalizedRow['audio url'] || normalizedRow['recording link'] || '').trim();
 
-        const updateData = {
+        const callDoc = {
           callId: uniqueCallId,
           agentName,
           agentEmail,
@@ -190,31 +200,57 @@ const uploadCallData = async (req, res) => {
           customerName,
           uploadedBy: req.userId,
           isActive: true,
+          status: 'pending',
           createdAt: new Date(),
           updatedAt: new Date()
         };
 
         if (recordingPath) {
-          updateData.audioUrl = recordingPath;
+          callDoc.audioUrl = recordingPath;
         }
 
-        // Try to save to MongoDB
-        try {
-          const newCall = new Call(updateData);
-          await newCall.save();
-          results.success++;
-        } catch (saveErr) {
-          // If MongoDB fails, save locally
-          if (process.env.DB_MODE === 'offline') {
-            saveToLocalFile(updateData);
-            results.success++;
-          } else {
-            throw saveErr;
-          }
-        }
+        callsToSave.push(callDoc);
       } catch (err) {
         results.failed++;
-        results.errors.push(`Row ${results.success + results.failed}: ${err.message}`);
+        results.errors.push(`Row ${i + 1}: Data processing failed - ${err.message}`);
+      }
+    }
+
+    // Perform Bulk Save
+    if (callsToSave.length > 0) {
+      if (!isOffline) {
+        try {
+          // Use bulkWrite for upserting (if same callId exists)
+          const bulkOps = callsToSave.map(call => ({
+            updateOne: {
+              filter: { callId: call.callId },
+              update: { $set: call },
+              upsert: true
+            }
+          }));
+          
+          const bulkResult = await Call.bulkWrite(bulkOps, { ordered: false });
+          results.success = (bulkResult.upsertedCount || 0) + (bulkResult.modifiedCount || 0) + (bulkResult.matchedCount || 0);
+          console.log(`✅ Bulk Database Save: ${results.success} records processed.`);
+        } catch (dbErr) {
+          console.error('⚠️ MongoDB Bulk Save failed, falling back to local:', dbErr.message);
+          // Fallback to local on DB error
+          const success = saveManyToLocalFile(callsToSave);
+          if (success) {
+            results.success = callsToSave.length;
+          } else {
+            throw new Error('Failed to save data both to MongoDB and Local Storage');
+          }
+        }
+      } else {
+        // Direct local save if already in offline mode
+        const success = saveManyToLocalFile(callsToSave);
+        if (success) {
+          results.success = callsToSave.length;
+        } else {
+          results.failed += callsToSave.length;
+          results.errors.push('Failed to save to local storage.');
+        }
       }
     }
 

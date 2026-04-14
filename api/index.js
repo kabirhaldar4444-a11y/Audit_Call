@@ -23,8 +23,8 @@ const app = express();
 
 // Middleware - OPEN CORS for connectivity debugging
 app.use(cors({ origin: '*', credentials: true }));
-app.use(express.json({ limit: '500mb' }));
-app.use(express.urlencoded({ limit: '500mb', extended: true }));
+app.use(express.json({ limit: '1gb' }));
+app.use(express.urlencoded({ limit: '1gb', extended: true }));
 
 // Static files for uploads
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
@@ -86,7 +86,9 @@ if (require.main === module || process.env.NODE_ENV !== 'production') {
   const server = app.listen(PORT, () => {
     console.log(`\n✅ Server running on port ${PORT}`);
   });
-  server.timeout = 600000;
+  // Set timeout to 15 minutes for extremely large file processing
+  server.timeout = 900000; 
+  server.keepAliveTimeout = 900000;
 }
 
 // Handle unhandled promise rejections gracefully
