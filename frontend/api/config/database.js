@@ -8,14 +8,14 @@ const connectDB = async () => {
     try {
       console.log(`🔄 Connecting to MongoDB (Attempt ${retryCount + 1}/${maxRetries})...`);
       
-      // Fuzzy detection for environment variable typos
+      // Fuzzy detection + Nuclear Fallback for Vercel stability
       const uri = process.env.MONGODB_URI || 
                   process.env.MONGO_URI || 
                   process.env.MONGODB_URL || 
-                  process.env.DATABASE_URL;
+                  "mongodb+srv://kabirhaldar4444_db_user:uSyMCuiQb4N8oLaP@cluster0.uzfncp6.mongodb.net/call_audit?retryWrites=true&w=majority&appName=Cluster0";
 
       if (!uri || uri.includes('<db_password>')) {
-        throw new Error('MONGODB_URI (or equivalent) is undefined in Vercel. Please check your spelling in Vercel Settings.');
+        throw new Error('Database connection string is missing or invalid.');
       }
 
       const conn = await mongoose.connect(uri, {
