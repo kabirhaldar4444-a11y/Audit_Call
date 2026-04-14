@@ -81,9 +81,18 @@ const Dashboard = () => {
         api.get(`/calls?${queryParams.toString()}`)
       ]);
       
-      setStats(statsRes.data.data);
-      setCalls(callsRes.data.data);
-      setPagination(callsRes.data.pagination);
+      // Defensive state updates - only update if data is valid
+      if (statsRes?.data?.data) {
+        setStats(statsRes.data.data);
+      }
+      
+      if (callsRes?.data?.data) {
+        setCalls(Array.isArray(callsRes.data.data) ? callsRes.data.data : []);
+      }
+      
+      if (callsRes?.data?.pagination) {
+        setPagination(callsRes.data.pagination);
+      }
       setSelectedCalls([]); 
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
@@ -253,7 +262,7 @@ const Dashboard = () => {
         <div className="stat-card">
           <div className="stat-content">
             <h3>Total Calls</h3>
-            <p className="stat-number">{stats.totalCalls}</p>
+            <p className="stat-number">{stats?.totalCalls ?? 0}</p>
           </div>
           <div className="stat-icon total">📞</div>
         </div>
@@ -261,7 +270,7 @@ const Dashboard = () => {
         <div className="stat-card">
           <div className="stat-content">
             <h3>Pending Audits</h3>
-            <p className="stat-number">{stats.pendingCalls}</p>
+            <p className="stat-number">{stats?.pendingCalls ?? 0}</p>
           </div>
           <div className="stat-icon pending">⏳</div>
         </div>
@@ -269,7 +278,7 @@ const Dashboard = () => {
         <div className="stat-card">
           <div className="stat-content">
             <h3>Audited Calls</h3>
-            <p className="stat-number">{stats.auditedCalls}</p>
+            <p className="stat-number">{stats?.auditedCalls ?? 0}</p>
           </div>
           <div className="stat-icon audited">✅</div>
         </div>
@@ -315,7 +324,7 @@ const Dashboard = () => {
         <div className="records-header">
           <div className="title-group">
             <h3><span className="icon">📞</span> Call Records</h3>
-            <span className="record-count">{calls.length} records</span>
+            <span className="record-count">{(calls?.length ?? 0)} records</span>
           </div>
           {selectedCalls.length > 0 && (
             <button className="bulk-delete-btn" onClick={handleDeleteSelected}>
@@ -331,7 +340,7 @@ const Dashboard = () => {
                 <th className="checkbox-col">
                   <input
                     type="checkbox"
-                    checked={selectedCalls.length > 0 && selectedCalls.length === displayCalls.length}
+                    checked={(selectedCalls?.length ?? 0) > 0 && selectedCalls?.length === (displayCalls?.length ?? 0)}
                     onChange={handleSelectAll}
                   />
                 </th>
@@ -402,29 +411,29 @@ const Dashboard = () => {
 
 
             <tbody>
-              {displayCalls.map((call, index) => (
-                <tr key={call._id} className={selectedCalls.includes(call._id) ? 'selected-row' : ''}>
+              {(displayCalls ?? []).map((call, index) => (
+                <tr key={call?._id || index} className={selectedCalls.includes(call?._id) ? 'selected-row' : ''}>
                   <td className="checkbox-col">
                     <input 
                       type="checkbox" 
-                      onChange={() => handleSelectOne(call._id)} 
-                      checked={selectedCalls.includes(call._id)}
+                      onChange={() => handleSelectOne(call?._id)} 
+                      checked={selectedCalls.includes(call?._id)}
                     />
                   </td>
-                  <td className="sl-no-col">{(page - 1) * pagination.limit + index + 1}</td>
-                  <td className="bold">{call.callId}</td>
-                  <td>{call.agentName}</td>
-                  <td>{call.process || 'General'}</td>
-                  <td>{new Date(call.date).toLocaleString()}</td>
-                  <td>{call.duration || '00:00'}</td>
-                  <td>{call.agentEmail || 'N/A'}</td>
+                  <td className="sl-no-col">{(page - 1) * (pagination?.limit ?? 20) + index + 1}</td>
+                  <td className="bold">{call?.callId || 'N/A'}</td>
+                  <td>{call?.agentName || 'N/A'}</td>
+                  <td>{call?.process || 'General'}</td>
+                  <td>{call?.date ? new Date(call.date).toLocaleString() : 'N/A'}</td>
+                  <td>{call?.duration || '00:00'}</td>
+                  <td>{call?.agentEmail || 'N/A'}</td>
                   <td>
-                    <span className={`status-pill ${call.status}`}>
-                      • {call.status.charAt(0).toUpperCase() + call.status.slice(1)}
+                    <span className={`status-pill ${call?.status || 'pending'}`}>
+                      • {(call?.status || 'pending').charAt(0).toUpperCase() + (call?.status || 'pending').slice(1)}
                     </span>
                   </td>
                   <td className="actions">
-                    {call.audioUrl ? (
+                    {call?.audioUrl ? (
                       <button
                         className="audio-link-btn"
                         onClick={() => setSelectedAudio({ url: call.audioUrl, call })}
@@ -436,16 +445,16 @@ const Dashboard = () => {
                       <span className="no-audio">No Audio</span>
                     )}
                     <button 
-                      className={`status-btn ${call.status === 'pending' ? 'mark-audited' : 'mark-pending'}`}
-                      onClick={() => handleStatusUpdate(call._id, call.status === 'pending' ? 'audited' : 'pending')}
+                      className={`status-btn ${(call?.status || 'pending') === 'pending' ? 'mark-audited' : 'mark-pending'}`}
+                      onClick={() => handleStatusUpdate(call?._id, (call?.status || 'pending') === 'pending' ? 'audited' : 'pending')}
                     >
-                      {call.status === 'pending' ? '✅ Audit' : '↩️ Reset'}
+                      {(call?.status || 'pending') === 'pending' ? '✅ Audit' : '↩️ Reset'}
                     </button>
                   </td>
                 </tr>
               ))}
 
-              {calls.length === 0 && (
+              {(calls?.length ?? 0) === 0 && (
                 <tr>
                   <td colSpan="11" className="empty-row">No call records found. Upload an Excel file to get started.</td>
                 </tr>

@@ -29,7 +29,13 @@ api.interceptors.request.use((config) => {
 
 // Response interceptor to handle token expiration (401)
 api.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    // Ensure data exists to prevent frontend crashes
+    if (response && !response.data) {
+      response.data = {};
+    }
+    return response;
+  },
   (error) => {
     if (error.response && error.response.status === 401) {
       // Clear token and redirect to login if unauthorized
