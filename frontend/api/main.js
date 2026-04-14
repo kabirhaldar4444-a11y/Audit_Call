@@ -78,6 +78,32 @@ app.get('/', (req, res) => {
   });
 });
 
+// Database Inspector for diagnostics
+app.get('/api/inspect', async (req, res) => {
+  try {
+    const mongoose = require('mongoose');
+    if (mongoose.connection.readyState !== 1) {
+      return res.status(500).json({ error: 'Database not connected' });
+    }
+    
+    const collections = await mongoose.connection.db.listCollections().toArray();
+    const stats = {};
+    
+    for (const col of collections) {
+      const count = await mongoose.connection.db.collection(col.name).countDocuments();
+      stats[col.name] = count;
+    }
+    
+    res.json({
+      database: mongoose.connection.name,
+      collections: stats,
+      envMode: process.env.NODE_ENV
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Error handling middleware
 app.use((err, req, res, next) => {
   console.error(err.stack);
