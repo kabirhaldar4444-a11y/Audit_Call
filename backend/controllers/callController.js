@@ -265,24 +265,15 @@ const uploadCallData = async (req, res) => {
           const bulkResult = await Call.bulkWrite(bulkOps, { ordered: false });
           results.success = (bulkResult.upsertedCount || 0) + (bulkResult.modifiedCount || 0) + (bulkResult.matchedCount || 0);
         } catch (dbErr) {
-          console.error('⚠️ MongoDB Bulk Save failed, falling back to local:', dbErr.message);
-          // Fallback to local on DB error
-          const success = saveManyToLocalFile(callsToSave);
-          if (success) {
-            results.success = callsToSave.length;
-          } else {
-            throw new Error('Failed to save data both to MongoDB and Local Storage');
-          }
+          console.error('❌ MongoDB Bulk Save failed:', dbErr.message);
+          // Vercel fallback is impossible (read-only), so we report the REAL error
+          results.failed += callsToSave.length;
+          results.errors.push(`Database Error: ${dbErr.message || 'Connection refused'}. Please check your MongoDB IP whitelist settings.`);
         }
       } else {
         // Direct local save if already in offline mode
-        const success = saveManyToLocalFile(callsToSave);
-        if (success) {
-          results.success = callsToSave.length;
-        } else {
-          results.failed += callsToSave.length;
-          results.errors.push('Failed to save to local storage.');
-        }
+        results.failed += callsToSave.length;
+        results.errors.push('System is in OFFLINE mode. Data cannot be saved to Vercel disk. Please ensure MongoDB is connected.');
       }
     }
 
