@@ -3,10 +3,10 @@ const dotenv = require('dotenv');
 const path = require('path');
 
 // Load .env from the backend directory
-dotenv.config({ path: 'f:\\ReactJs\\Call Audit\\backend\\.env' });
+dotenv.config({ path: path.join(__dirname, 'backend', '.env') });
 
 // We need to require the model. Let's check where it is.
-const Call = require('f:\\ReactJs\\Call Audit\\backend\\models\\Call');
+const Call = require('./backend/models/Call');
 
 const checkDB = async () => {
   try {

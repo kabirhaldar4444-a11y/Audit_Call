@@ -44,6 +44,7 @@ const audioUpload = multer({
       cb(new Error('Only MP3 files are allowed!'), false);
     }
   },
+  limits: { fileSize: 25 * 1024 * 1024 }, // 25MB limit
 });
 
 const dataUpload = multer({
@@ -56,6 +57,7 @@ const dataUpload = multer({
     }
     cb(new Error('Only Excel and CSV files are allowed!'));
   },
+  limits: { fileSize: 25 * 1024 * 1024 }, // 25MB limit
 });
 
 module.exports = { audioUpload, dataUpload };

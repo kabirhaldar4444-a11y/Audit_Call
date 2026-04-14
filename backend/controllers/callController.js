@@ -134,6 +134,7 @@ const uploadCallData = async (req, res) => {
     const seenIdsInBatch = new Set();
     const callsToSave = [];
     const isOffline = process.env.DB_MODE === 'offline' || !Call.db || Call.db.readyState !== 1;
+    console.log(`📡 Upload request received. Database state: ${Call.db?.readyState || 'Unknown'}, Mode: ${process.env.DB_MODE || 'online'}, Fallback: ${isOffline ? 'OFFLINE' : 'ONLINE'}`);
     const batchTimestamp = Date.now();
 
     for (let i = 0; i < data.length; i++) {

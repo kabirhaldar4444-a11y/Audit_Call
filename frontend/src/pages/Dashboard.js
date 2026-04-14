@@ -136,6 +136,17 @@ const Dashboard = () => {
     const file = e.target.files[0];
     if (!file) return;
 
+    // Check file size (25MB limit)
+    const MAX_SIZE = 25 * 1024 * 1024;
+    if (file.size > MAX_SIZE) {
+      setUploadStatus({ 
+        type: 'error', 
+        message: `File is too large (${(file.size / (1024 * 1024)).toFixed(2)}MB). Maximum allowed size is 25MB.` 
+      });
+      if (dataFilesInput.current) dataFilesInput.current.value = '';
+      return;
+    }
+
     const formData = new FormData();
     formData.append('file', file);
 
@@ -175,6 +186,19 @@ const Dashboard = () => {
   const handleAudioUpload = async (e) => {
     const files = Array.from(e.target.files);
     if (!files || files.length === 0) return;
+
+    // Check file size (25MB limit)
+    const MAX_SIZE = 25 * 1024 * 1024;
+    const oversizedFiles = files.filter(f => f.size > MAX_SIZE);
+    
+    if (oversizedFiles.length > 0) {
+      setUploadStatus({ 
+        type: 'error', 
+        message: `${oversizedFiles.length} files exceed the 25MB limit. Please upload smaller files.` 
+      });
+      if (audioFilesInput.current) audioFilesInput.current.value = '';
+      return;
+    }
 
     const formData = new FormData();
     files.forEach(file => formData.append('files', file));
