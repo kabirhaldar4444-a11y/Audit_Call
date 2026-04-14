@@ -68,11 +68,6 @@ app.use((err, req, res, next) => {
   res.status(500).json({ message: 'Internal server error', error: err.message });
 });
 
-// 404 handler
-app.use((req, res) => {
-  res.status(404).json({ message: 'Route not found' });
-});
-
 // Health checks
 app.get('/health', (req, res) => {
   const mongoose = require('mongoose');
@@ -108,6 +103,11 @@ app.get('/api/health', (req, res) => {
     detectedKeys,
     lastError: global.lastDbError || null
   });
+});
+
+// 404 handler
+app.use((req, res) => {
+  res.status(404).json({ message: 'Route not found' });
 });
 
 // Connect DB asynchronously for serverless
