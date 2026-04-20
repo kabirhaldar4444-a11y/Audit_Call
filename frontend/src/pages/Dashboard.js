@@ -193,7 +193,7 @@ const Dashboard = () => {
           return;
         }
 
-        const BATCH_SIZE = 1000;
+        const BATCH_SIZE = 200;
         const totalBatches = Math.ceil(data.length / BATCH_SIZE);
         let successCount = 0;
         let totalProcessed = 0;
@@ -235,6 +235,8 @@ const Dashboard = () => {
             type: 'success', 
             message: `Successfully uploaded ${successCount} of ${data.length} records.` 
           });
+          // FORCE REFRESH
+          fetchData();
         }
         setUploadProgress(100);
       } catch (error) {

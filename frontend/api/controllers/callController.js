@@ -460,21 +460,36 @@ const uploadCallDataBatch = async (req, res) => {
             }
           }));
           
-          const bulkResult = await Call.bulkWrite(bulkOps, { ordered: false });
-          results.success = (bulkResult.upsertedCount || 0) + (bulkResult.modifiedCount || 0) + (bulkResult.matchedCount || 0);
+          try {
+            const bulkResult = await Call.bulkWrite(bulkOps, { ordered: false });
+            // Correct counting: upsertedCount + matchedCount covers all processed items
+            results.success = (bulkResult.upsertedCount || 0) + (bulkResult.matchedCount || 0);
+            
+            // Log if there were partial failures
+            if (bulkResult.getWriteErrors().length > 0) {
+              const writeErrors = bulkResult.getWriteErrors();
+              results.failed += writeErrors.length;
+              results.errors.push(`Database Write Errors: ${writeErrors.length} operations failed. Example: ${writeErrors[0].errmsg}`);
+            }
+          } catch (bulkError) {
+             // Handle case where bulkWrite itself throws (e.g. timeout)
+             console.error('Bulk write exception:', bulkError);
+             results.failed += callsToSave.length;
+             results.errors.push(`Database Error: ${bulkError.message}`);
+          }
         }
 
         // 2. Always save to local storage as backup (or primary if offline)
+        // Only if local saved succeeds and we are offline, update the success count
         const localSaved = saveManyToLocalFile(callsToSave);
         
-        // If we are offline, use the local save count as success
         if (isOffline) {
           if (localSaved) {
             results.success = callsToSave.length;
             results.databaseMode = 'offline';
           } else {
             results.failed += callsToSave.length;
-            results.errors.push('Failed to save to local storage.');
+            results.errors.push('Failed to save to local storage (Vercel disk is read-only).');
           }
         }
       } catch (saveErr) {
