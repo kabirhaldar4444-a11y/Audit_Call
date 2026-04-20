@@ -2,7 +2,7 @@ const Call = require('../models/Call');
 const fs = require('fs');
 const path = require('path');
 const xlsx = require('xlsx');
-const { saveToLocalFile, saveManyToLocalFile } = require('../utils/dataPersistence');
+const { saveToLocalFile, saveManyToLocalFile, getCallsFromLocalFile } = require('../utils/dataPersistence');
 
 const getAllCalls = async (req, res) => {
   try {
@@ -35,15 +35,31 @@ const getAllCalls = async (req, res) => {
     const sortOrder = req.query.sortOrder === 'asc' ? 1 : -1;
     const sort = { [sortField]: sortOrder };
 
-    const [total, calls] = await Promise.all([
-      Call.countDocuments(filter),
-      Call.find(filter)
-        .populate('uploadedBy', 'username email')
-        .sort(sort)
-        .skip(skip)
-        .limit(limit)
-        .lean()
-    ]);
+    const isOffline = process.env.DB_MODE === 'offline' || !Call.db || Call.db.readyState !== 1;
+    let total, calls;
+
+    if (!isOffline) {
+      try {
+        [total, calls] = await Promise.all([
+          Call.countDocuments(filter),
+          Call.find(filter)
+            .populate('uploadedBy', 'username email')
+            .sort(sort)
+            .skip(skip)
+            .limit(limit)
+            .lean()
+        ]);
+      } catch (dbError) {
+        console.warn('⚠️  MongoDB Fetch failed, falling back to local:', dbError.message);
+        const localData = getCallsFromLocalFile(req.query);
+        total = localData.length;
+        calls = localData.slice(skip, skip + limit);
+      }
+    } else {
+      const localData = getCallsFromLocalFile(req.query);
+      total = localData.length;
+      calls = localData.slice(skip, skip + limit);
+    }
 
     res.status(200).json({
       message: 'Calls retrieved successfully',
@@ -54,7 +70,7 @@ const getAllCalls = async (req, res) => {
         limit,
         totalPages: Math.ceil(total / limit)
       },
-      databaseMode: process.env.DB_MODE || 'online'
+      databaseMode: isOffline ? 'offline' : 'online'
     });
   } catch (error) {
     console.error('Error in getAllCalls:', error);
@@ -430,8 +446,9 @@ const uploadCallDataBatch = async (req, res) => {
     }
 
     if (callsToSave.length > 0) {
-      if (!isOffline) {
-        try {
+      try {
+        // 1. Try to save to MongoDB if connected
+        if (!isOffline) {
           const bulkOps = callsToSave.map(call => ({
             updateOne: {
               filter: { callId: call.callId },
@@ -442,14 +459,25 @@ const uploadCallDataBatch = async (req, res) => {
           
           const bulkResult = await Call.bulkWrite(bulkOps, { ordered: false });
           results.success = (bulkResult.upsertedCount || 0) + (bulkResult.modifiedCount || 0) + (bulkResult.matchedCount || 0);
-        } catch (dbErr) {
-          console.error('❌ MongoDB Bulk Save failed:', dbErr.message);
-          results.failed += callsToSave.length;
-          results.errors.push(`Database Error: ${dbErr.message}`);
         }
-      } else {
+
+        // 2. Always save to local storage as backup (or primary if offline)
+        const localSaved = saveManyToLocalFile(callsToSave);
+        
+        // If we are offline, use the local save count as success
+        if (isOffline) {
+          if (localSaved) {
+            results.success = callsToSave.length;
+            results.databaseMode = 'offline';
+          } else {
+            results.failed += callsToSave.length;
+            results.errors.push('Failed to save to local storage.');
+          }
+        }
+      } catch (saveErr) {
+        console.error('❌ Data Save failed:', saveErr.message);
         results.failed += callsToSave.length;
-        results.errors.push('System is in OFFLINE mode. Data cannot be saved.');
+        results.errors.push(`Save Error: ${saveErr.message}`);
       }
     }
 
@@ -508,24 +536,50 @@ const uploadAudio = async (req, res) => {
 
 const getDashboardStats = async (req, res) => {
   try {
-    const [totalCalls, pendingCalls, auditedCalls, callsInLast7Days] = await Promise.all([
-      Call.countDocuments({ isActive: true }),
-      Call.countDocuments({ status: 'pending', isActive: true }),
-      Call.countDocuments({ status: 'audited', isActive: true }),
-      Call.countDocuments({ 
-        date: { $gte: last7Days },
-        isActive: true 
-      })
-    ]);
+    const isOffline = process.env.DB_MODE === 'offline' || !Call.db || Call.db.readyState !== 1;
+    let stats;
+
+    if (!isOffline) {
+      try {
+        const last7Days = new Date();
+        last7Days.setDate(last7Days.getDate() - 7);
+
+        const [totalCalls, pendingCalls, auditedCalls, callsInLast7Days] = await Promise.all([
+          Call.countDocuments({ isActive: true }),
+          Call.countDocuments({ status: 'pending', isActive: true }),
+          Call.countDocuments({ status: 'audited', isActive: true }),
+          Call.countDocuments({ 
+            date: { $gte: last7Days },
+            isActive: true 
+          })
+        ]);
+        
+        stats = { totalCalls, pendingCalls, auditedCalls, callsInLast7Days };
+      } catch (dbError) {
+        console.warn('⚠️  MongoDB Stats failed, falling back to local:', dbError.message);
+        const localCalls = getCallsFromLocalFile();
+        stats = {
+          totalCalls: localCalls.length,
+          pendingCalls: localCalls.filter(c => c.status === 'pending').length,
+          auditedCalls: localCalls.filter(c => c.status === 'audited').length,
+          callsInLast7Days: localCalls.filter(c => new Date(c.date) >= new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)).length
+        };
+      }
+    } else {
+      const localCalls = getCallsFromLocalFile();
+      stats = {
+        totalCalls: localCalls.length,
+        pendingCalls: localCalls.filter(c => c.status === 'pending').length,
+        auditedCalls: localCalls.filter(c => c.status === 'audited').length,
+        callsInLast7Days: localCalls.filter(c => new Date(c.date) >= new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)).length
+      };
+    }
     
     res.status(200).json({ 
       message: 'Dashboard stats retrieved successfully', 
       data: { 
-        totalCalls, 
-        pendingCalls, 
-        auditedCalls,
-        callsInLast7Days,
-        databaseMode: process.env.DB_MODE || 'online'
+        ...stats,
+        databaseMode: isOffline ? 'offline' : 'online'
       } 
     });
   } catch (error) {
