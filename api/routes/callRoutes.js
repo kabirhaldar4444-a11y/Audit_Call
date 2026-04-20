@@ -6,6 +6,7 @@ const {
   createCall, 
   getDashboardStats, 
   uploadCallData, 
+  uploadCallDataBatch,
   uploadAudio,
   deleteCalls,
   updateCallStatus,
@@ -25,6 +26,7 @@ router.patch('/:id/status', authenticate, updateCallStatus);
 
 // Upload routes
 router.post('/upload-data', authenticate, adminOnly, dataUpload.single('file'), uploadCallData);
+router.post('/upload-batch', authenticate, adminOnly, uploadCallDataBatch);
 router.post('/upload-audio', authenticate, adminOnly, audioUpload.array('files', 50), uploadAudio);
 
 module.exports = router;
