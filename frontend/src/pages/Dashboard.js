@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import api from '../utils/api';
 import AudioPlayer from '../components/AudioPlayer';
+import * as XLSX from 'xlsx';
 import './Dashboard.css';
 
 const Dashboard = () => {
@@ -86,6 +87,7 @@ const Dashboard = () => {
   const [uploading, setUploading] = useState(false);
   const [selectedAudio, setSelectedAudio] = useState(null);
   const [uploadStatus, setUploadStatus] = useState(null);
+  const [uploadProgress, setUploadProgress] = useState(0);
 
   const dataFilesInput = useRef(null);
   const audioFilesInput = useRef(null);
@@ -169,60 +171,79 @@ const Dashboard = () => {
   };
 
   const handleDataUpload = async (e) => {
-
     const file = e.target.files[0];
     if (!file) return;
 
-    // Check file size (25MB limit)
-    const MAX_SIZE = 25 * 1024 * 1024;
-    if (file.size > MAX_SIZE) {
-      setUploadStatus({ 
-        type: 'error', 
-        message: `File is too large (${(file.size / (1024 * 1024)).toFixed(2)}MB). Maximum allowed size is 25MB.` 
-      });
-      if (dataFilesInput.current) dataFilesInput.current.value = '';
-      return;
-    }
-
-    const formData = new FormData();
-    formData.append('file', file);
-
     setUploading(true);
-    setUploadStatus({ type: 'info', message: 'Uploading data...' });
+    setUploadStatus({ type: 'info', message: 'Reading file...' });
+    setUploadProgress(0);
 
-    try {
-      const response = await api.post('/calls/upload-data', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
-      });
-      
-      const { success, total } = response.data?.data || {};
-      
-      if (success > 0) {
-        setUploadStatus({ type: 'success', message: `Successfully uploaded ${success} of ${total} records.` });
-      } else if (total > 0) {
-        // Show the first error from the backend if available
-        const errorDetail = response.data?.data?.errors?.[0] || 'Please check your column headers or data format.';
-        setUploadStatus({ type: 'error', message: `Failed to process records: ${errorDetail}` });
-      } else {
-        setUploadStatus({ type: 'error', message: 'No records found in the file.' });
+    const reader = new FileReader();
+    reader.onload = async (evt) => {
+      try {
+        const bstr = evt.target.result;
+        const wb = XLSX.read(bstr, { type: 'binary' });
+        const wsname = wb.SheetNames[0];
+        const ws = wb.Sheets[wsname];
+        const data = XLSX.utils.sheet_to_json(ws);
+
+        if (data.length === 0) {
+          setUploadStatus({ type: 'error', message: 'The file is empty.' });
+          setUploading(false);
+          return;
+        }
+
+        const BATCH_SIZE = 1000;
+        const totalBatches = Math.ceil(data.length / BATCH_SIZE);
+        let successCount = 0;
+        let totalProcessed = 0;
+
+        setUploadStatus({ type: 'info', message: `Starting upload of ${data.length} records...` });
+
+        for (let i = 0; i < data.length; i += BATCH_SIZE) {
+          const batch = data.slice(i, i + BATCH_SIZE);
+          const currentBatchNumber = Math.floor(i / BATCH_SIZE) + 1;
+          
+          setUploadStatus({ 
+            type: 'info', 
+            message: `Uploading batch ${currentBatchNumber} of ${totalBatches} (${totalProcessed} / ${data.length} records)...` 
+          });
+          setUploadProgress(Math.round((totalProcessed / data.length) * 100));
+
+          try {
+            const response = await api.post('/calls/upload-batch', { data: batch });
+            successCount += response.data?.data?.success || 0;
+            totalProcessed += batch.length;
+          } catch (batchError) {
+            console.error(`Batch ${currentBatchNumber} failed:`, batchError);
+            // Continue with next batch even if one fails, or could stop here
+          }
+        }
+
+        setUploadStatus({ 
+          type: 'success', 
+          message: `Successfully uploaded ${successCount} of ${data.length} records.` 
+        });
+        setUploadProgress(100);
+      } catch (error) {
+        console.error('❌ Data Processing Error:', error);
+        setUploadStatus({ type: 'error', message: 'Error processing file. Please ensure it is a valid Excel/CSV.' });
+      } finally {
+        setUploading(false);
+        setTimeout(() => {
+          fetchData();
+          setUploadProgress(0);
+        }, 1500);
+        if (dataFilesInput.current) dataFilesInput.current.value = '';
       }
-      
-      // Refresh handled in finally
-    } catch (error) {
-      console.error('❌ Data Upload Error:', error);
-      const errorMsg = error.response?.data?.message || error.message || 'Error uploading data';
-      setUploadStatus({ 
-        type: 'error', 
-        message: errorMsg === 'Network Error' ? 'Network Error: The server might have restarted or the file is too large for the connection.' : errorMsg
-      });
-    } finally {
+    };
+
+    reader.onerror = () => {
+      setUploadStatus({ type: 'error', message: 'Error reading file.' });
       setUploading(false);
-      // Brief delay to allow DB indexing to complete for large datasets
-      setTimeout(() => {
-        fetchData();
-      }, 800);
-      if (dataFilesInput.current) dataFilesInput.current.value = '';
-    }
+    };
+
+    reader.readAsBinaryString(file);
   };
 
   const handleAudioUpload = async (e) => {
@@ -286,8 +307,15 @@ const Dashboard = () => {
         </div>
         {uploadStatus && (
           <div className={`status-banner ${uploadStatus.type}`}>
-            {uploadStatus.message}
-            <button onClick={() => setUploadStatus(null)}>×</button>
+            <div className="status-message-container">
+              <div className="status-text">{uploadStatus.message}</div>
+              {uploadProgress > 0 && uploadProgress < 100 && (
+                <div className="upload-progress-container">
+                  <div className="upload-progress-bar" style={{ width: `${uploadProgress}%` }}></div>
+                </div>
+              )}
+            </div>
+            <button className="status-close" onClick={() => { setUploadStatus(null); setUploadProgress(0); }}>×</button>
           </div>
         )}
       </div>
