@@ -1,8 +1,9 @@
+const mongoose = require('mongoose');
 const Call = require('../models/Call');
 const fs = require('fs');
 const path = require('path');
 const xlsx = require('xlsx');
-const { saveToLocalFile, saveManyToLocalFile } = require('../utils/dataPersistence');
+const { saveToLocalFile, saveManyToLocalFile, getCallsFromLocalFile } = require('../utils/dataPersistence');
 
 const getAllCalls = async (req, res) => {
   try {
@@ -35,15 +36,31 @@ const getAllCalls = async (req, res) => {
     const sortOrder = req.query.sortOrder === 'asc' ? 1 : -1;
     const sort = { [sortField]: sortOrder };
 
-    const [total, calls] = await Promise.all([
-      Call.countDocuments(filter),
-      Call.find(filter)
-        .populate('uploadedBy', 'username email')
-        .sort(sort)
-        .skip(skip)
-        .limit(limit)
-        .lean()
-    ]);
+    const isOffline = process.env.DB_MODE === 'offline' || mongoose.connection.readyState !== 1;
+    let total, calls;
+
+    if (!isOffline) {
+      try {
+        [total, calls] = await Promise.all([
+          Call.countDocuments(filter),
+          Call.find(filter)
+            .populate('uploadedBy', 'username email')
+            .sort(sort)
+            .skip(skip)
+            .limit(limit)
+            .lean()
+        ]);
+      } catch (dbError) {
+        console.warn('⚠️  MongoDB Fetch failed, falling back to local:', dbError.message);
+        const localData = getCallsFromLocalFile(req.query);
+        total = localData.length;
+        calls = localData.slice(skip, skip + limit);
+      }
+    } else {
+      const localData = getCallsFromLocalFile(req.query);
+      total = localData.length;
+      calls = localData.slice(skip, skip + limit);
+    }
 
     res.status(200).json({
       message: 'Calls retrieved successfully',
@@ -54,7 +71,7 @@ const getAllCalls = async (req, res) => {
         limit,
         totalPages: Math.ceil(total / limit)
       },
-      databaseMode: process.env.DB_MODE || 'online'
+      databaseMode: isOffline ? 'offline' : 'online'
     });
   } catch (error) {
     console.error('Error in getAllCalls:', error);
@@ -299,6 +316,184 @@ const uploadCallData = async (req, res) => {
   }
 };
 
+const uploadCallDataBatch = async (req, res) => {
+  try {
+    const { data } = req.body;
+    if (!data || !Array.isArray(data)) {
+      return res.status(400).json({ message: 'Please provide an array of data records' });
+    }
+
+    const results = {
+      total: data.length,
+      success: 0,
+      failed: 0,
+      errors: [],
+      databaseMode: process.env.DB_MODE || 'online'
+    };
+
+    const seenIdsInBatch = new Set();
+    const callsToSave = [];
+    const isOffline = process.env.DB_MODE === 'offline' || mongoose.connection.readyState !== 1;
+    const batchTimestamp = Date.now();
+
+    for (let i = 0; i < data.length; i++) {
+      const row = data[i];
+      try {
+        const normalizedRow = {};
+        Object.keys(row).forEach(key => {
+          const normalizedKey = key.toLowerCase().trim().replace(/_/g, ' ').replace(/\s+/g, ' ');
+          normalizedRow[normalizedKey] = row[key];
+        });
+
+        const rawCallId = 
+          normalizedRow['call id'] || 
+          normalizedRow['callid'] || 
+          normalizedRow['sl no'] || 
+          normalizedRow['serial no'] || 
+          normalizedRow['slno'] || 
+          normalizedRow['id'] || 
+          normalizedRow['uid'] || 
+          normalizedRow['record id'] || 
+          normalizedRow['lead id'] ||
+          Object.values(row)[0];
+
+        let callId = String(rawCallId || '').trim();
+
+        if (!callId) {
+          callId = `GEN-${batchTimestamp}-${i}`;
+        }
+
+        let uniqueCallId = callId;
+        let counter = 1;
+        while (seenIdsInBatch.has(uniqueCallId)) {
+          uniqueCallId = `${callId}_${counter}`;
+          counter++;
+        }
+        seenIdsInBatch.add(uniqueCallId);
+
+        const agentName = String(
+          normalizedRow['agent'] || 
+          normalizedRow['agent name'] || 
+          normalizedRow['agent full name'] || 
+          normalizedRow['agentname'] || 
+          normalizedRow['staff'] || 
+          normalizedRow['caller'] || 
+          normalizedRow['user'] || 
+          'Unknown Agent'
+        ).trim();
+        const agentEmail = String(normalizedRow['agent email'] || normalizedRow['email'] || normalizedRow['agentemail'] || normalizedRow['email id'] || '').toLowerCase().trim();
+        const processName = String(normalizedRow['process'] || normalizedRow['dept'] || normalizedRow['department'] || normalizedRow['campaign'] || 'General').trim();
+        
+        let dateStr = (
+          normalizedRow['date & time'] || 
+          normalizedRow['date time'] || 
+          normalizedRow['date'] || 
+          normalizedRow['timestamp'] || 
+          normalizedRow['time'] || 
+          normalizedRow['date-time'] || 
+          normalizedRow['call date'] || 
+          normalizedRow['transaction date'] || 
+          new Date().toISOString()
+        );
+        
+        let date;
+        // Handle Excel numeric dates if they come through
+        if (typeof dateStr === 'number') {
+           date = new Date(Math.round((dateStr - 25569) * 86400 * 1000));
+        } else {
+           date = new Date(dateStr.toString().trim());
+        }
+
+        const finalDate = isNaN(date.getTime()) ? new Date() : date;
+
+        const phoneNumber = String(normalizedRow['phone number'] || normalizedRow['phone'] || normalizedRow['customer number'] || normalizedRow['mobile'] || '').trim();
+        const duration = String(
+          normalizedRow['duration'] || 
+          normalizedRow['talktime'] || 
+          normalizedRow['talk time'] || 
+          normalizedRow['call duration'] || 
+          normalizedRow['call time'] || 
+          normalizedRow['length'] || 
+          ''
+        ).trim();
+        const remarks = String(normalizedRow['remarks'] || normalizedRow['comment'] || normalizedRow['comment'] || '').trim();
+        const customerName = String(normalizedRow['customer name'] || normalizedRow['customer'] || '').trim();
+        const recordingPath = String(normalizedRow['recording path'] || normalizedRow['audio link'] || normalizedRow['audio url'] || normalizedRow['recording link'] || '').trim();
+
+        const callDoc = {
+          callId: uniqueCallId,
+          agentName,
+          agentEmail,
+          process: processName,
+          date: finalDate,
+          phoneNumber,
+          duration,
+          remarks,
+          customerName,
+          uploadedBy: req.userId,
+          isActive: true,
+          status: 'pending',
+          createdAt: new Date(),
+          updatedAt: new Date()
+        };
+
+        if (recordingPath) {
+          callDoc.audioUrl = recordingPath;
+        }
+
+        callsToSave.push(callDoc);
+      } catch (err) {
+        results.failed++;
+        results.errors.push(`Row ${i + 1}: Data processing failed - ${err.message}`);
+      }
+    }
+
+    if (callsToSave.length > 0) {
+      try {
+        // 1. Try to save to MongoDB if connected
+        if (!isOffline) {
+          const bulkOps = callsToSave.map(call => ({
+            updateOne: {
+              filter: { callId: call.callId },
+              update: { $set: call },
+              upsert: true
+            }
+          }));
+          
+          const bulkResult = await Call.bulkWrite(bulkOps, { ordered: false });
+          results.success = (bulkResult.upsertedCount || 0) + (bulkResult.modifiedCount || 0) + (bulkResult.matchedCount || 0);
+        }
+
+        // 2. Always save to local storage as backup (or primary if offline)
+        const localSaved = saveManyToLocalFile(callsToSave);
+        
+        // If we are offline, use the local save count as success
+        if (isOffline) {
+          if (localSaved) {
+            results.success = callsToSave.length;
+            results.databaseMode = 'offline';
+          } else {
+            results.failed += callsToSave.length;
+            results.errors.push('Failed to save to local storage.');
+          }
+        }
+      } catch (saveErr) {
+        console.error('❌ Data Save failed:', saveErr.message);
+        results.failed += callsToSave.length;
+        results.errors.push(`Save Error: ${saveErr.message}`);
+      }
+    }
+
+    res.status(200).json({
+      message: 'Batch uploaded successfully',
+      data: results,
+    });
+  } catch (error) {
+    console.error('❌ BATCH UPLOAD ERROR:', error);
+    res.status(500).json({ message: error.message, error: error.message, databaseMode: process.env.DB_MODE || 'online' });
+  }
+};
+
 const deleteCalls = async (req, res) => {
   try {
     const { ids } = req.body;
@@ -346,27 +541,50 @@ const uploadAudio = async (req, res) => {
 
 const getDashboardStats = async (req, res) => {
   try {
-    const last7Days = new Date();
-    last7Days.setDate(last7Days.getDate() - 7);
+    const isOffline = process.env.DB_MODE === 'offline' || mongoose.connection.readyState !== 1;
+    let stats;
 
-    const [totalCalls, pendingCalls, auditedCalls, callsInLast7Days] = await Promise.all([
-      Call.countDocuments({ isActive: true }),
-      Call.countDocuments({ status: 'pending', isActive: true }),
-      Call.countDocuments({ status: 'audited', isActive: true }),
-      Call.countDocuments({ 
-        date: { $gte: last7Days },
-        isActive: true 
-      })
-    ]);
+    if (!isOffline) {
+      try {
+        const last7Days = new Date();
+        last7Days.setDate(last7Days.getDate() - 7);
+
+        const [totalCalls, pendingCalls, auditedCalls, callsInLast7Days] = await Promise.all([
+          Call.countDocuments({ isActive: true }),
+          Call.countDocuments({ status: 'pending', isActive: true }),
+          Call.countDocuments({ status: 'audited', isActive: true }),
+          Call.countDocuments({ 
+            date: { $gte: last7Days },
+            isActive: true 
+          })
+        ]);
+        
+        stats = { totalCalls, pendingCalls, auditedCalls, callsInLast7Days };
+      } catch (dbError) {
+        console.warn('⚠️  MongoDB Stats failed, falling back to local:', dbError.message);
+        const localCalls = getCallsFromLocalFile();
+        stats = {
+          totalCalls: localCalls.length,
+          pendingCalls: localCalls.filter(c => c.status === 'pending').length,
+          auditedCalls: localCalls.filter(c => c.status === 'audited').length,
+          callsInLast7Days: localCalls.filter(c => new Date(c.date) >= new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)).length
+        };
+      }
+    } else {
+      const localCalls = getCallsFromLocalFile();
+      stats = {
+        totalCalls: localCalls.length,
+        pendingCalls: localCalls.filter(c => c.status === 'pending').length,
+        auditedCalls: localCalls.filter(c => c.status === 'audited').length,
+        callsInLast7Days: localCalls.filter(c => new Date(c.date) >= new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)).length
+      };
+    }
     
     res.status(200).json({ 
       message: 'Dashboard stats retrieved successfully', 
       data: { 
-        totalCalls, 
-        pendingCalls, 
-        auditedCalls,
-        callsInLast7Days,
-        databaseMode: process.env.DB_MODE || 'online'
+        ...stats,
+        databaseMode: isOffline ? 'offline' : 'online'
       } 
     });
   } catch (error) {
@@ -474,6 +692,7 @@ module.exports = {
   createCall, 
   getDashboardStats, 
   uploadCallData, 
+  uploadCallDataBatch,
   uploadAudio,
   deleteCalls,
   updateCallStatus,
