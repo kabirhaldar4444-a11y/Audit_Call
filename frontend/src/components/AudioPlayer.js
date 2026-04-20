@@ -11,12 +11,33 @@ const AudioPlayer = ({ audioUrl, callInfo, onClose }) => {
   const [playbackSpeed, setPlaybackSpeed] = useState(1);
   const audioRef = useRef(null);
 
+  const normalizeAudioUrl = (url) => {
+    if (!url) return '';
+    
+    // Google Drive normalization
+    if (url.includes('drive.google.com')) {
+      const fileIdMatch = url.match(/\/d\/([^/]+)/) || url.match(/id=([^&]+)/);
+      if (fileIdMatch && fileIdMatch[1]) {
+        return `https://drive.google.com/uc?id=${fileIdMatch[1]}&export=download`;
+      }
+    }
+    
+    // Dropbox normalization
+    if (url.includes('dropbox.com') && !url.includes('raw=1')) {
+      return url.replace('?dl=0', '').replace('?dl=1', '') + (url.includes('?') ? '&raw=1' : '?raw=1');
+    }
+    
+    return url;
+  };
+
+  const finalAudioUrl = normalizeAudioUrl(audioUrl);
+
   useEffect(() => {
     setAudioError(false);
     if (audioRef.current) {
       audioRef.current.playbackRate = playbackSpeed;
     }
-  }, [audioUrl, playbackSpeed]);
+  }, [finalAudioUrl, playbackSpeed]);
 
   const handlePlayPause = () => {
     if (audioError) return;
@@ -82,7 +103,7 @@ const AudioPlayer = ({ audioUrl, callInfo, onClose }) => {
           <div className="call-meta">
             <h4>Call with {callInfo?.phoneNumber || 'Customer'}</h4>
             <p>Duration: {formatTime(duration)}</p>
-            {audioUrl.startsWith('http') && (
+            {finalAudioUrl.startsWith('http') && (
               <a href={audioUrl} target="_blank" rel="noopener noreferrer" className="external-source-link">
                 🔗 Open Original Link
               </a>
@@ -151,7 +172,7 @@ const AudioPlayer = ({ audioUrl, callInfo, onClose }) => {
 
         <audio
           ref={audioRef}
-          src={audioUrl}
+          src={finalAudioUrl}
           onTimeUpdate={handleTimeUpdate}
           onLoadedMetadata={handleLoadedMetadata}
           onEnded={() => setIsPlaying(false)}
