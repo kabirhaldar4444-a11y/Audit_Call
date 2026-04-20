@@ -20,7 +20,7 @@ const Dashboard = () => {
     date: ''
   });
   const [sortConfig, setSortConfig] = useState({
-    key: 'date',
+    key: 'createdAt',
     direction: 'desc'
   });
   const [page, setPage] = useState(1);
