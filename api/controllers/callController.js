@@ -1,3 +1,4 @@
+const mongoose = require('mongoose');
 const Call = require('../models/Call');
 const fs = require('fs');
 const path = require('path');
@@ -35,7 +36,7 @@ const getAllCalls = async (req, res) => {
     const sortOrder = req.query.sortOrder === 'asc' ? 1 : -1;
     const sort = { [sortField]: sortOrder };
 
-    const isOffline = process.env.DB_MODE === 'offline' || !Call.db || Call.db.readyState !== 1;
+    const isOffline = process.env.DB_MODE === 'offline' || mongoose.connection.readyState !== 1;
     let total, calls;
 
     if (!isOffline) {
@@ -152,7 +153,7 @@ const uploadCallData = async (req, res) => {
 
     const seenIdsInBatch = new Set();
     const callsToSave = [];
-    const isOffline = process.env.DB_MODE === 'offline' || !Call.db || Call.db.readyState !== 1;
+    const isOffline = process.env.DB_MODE === 'offline' || mongoose.connection.readyState !== 1;
     const batchTimestamp = Date.now();
     
     console.log(`📡 [Root API] Upload request received. Rows: ${data.length}, DB: ${isOffline ? 'OFFLINE' : 'ONLINE'}`);
@@ -333,7 +334,7 @@ const uploadCallDataBatch = async (req, res) => {
 
     const seenIdsInBatch = new Set();
     const callsToSave = [];
-    const isOffline = process.env.DB_MODE === 'offline' || !Call.db || Call.db.readyState !== 1;
+    const isOffline = process.env.DB_MODE === 'offline' || mongoose.connection.readyState !== 1;
     const batchTimestamp = Date.now();
 
     for (let i = 0; i < data.length; i++) {
@@ -539,7 +540,7 @@ const uploadAudio = async (req, res) => {
 
 const getDashboardStats = async (req, res) => {
   try {
-    const isOffline = process.env.DB_MODE === 'offline' || !Call.db || Call.db.readyState !== 1;
+    const isOffline = process.env.DB_MODE === 'offline' || mongoose.connection.readyState !== 1;
     let stats;
 
     if (!isOffline) {

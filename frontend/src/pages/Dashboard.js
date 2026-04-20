@@ -197,6 +197,7 @@ const Dashboard = () => {
         const totalBatches = Math.ceil(data.length / BATCH_SIZE);
         let successCount = 0;
         let totalProcessed = 0;
+        let lastBatchError = null;
 
         setUploadStatus({ type: 'info', message: `Starting upload of ${data.length} records...` });
 
@@ -212,18 +213,29 @@ const Dashboard = () => {
 
           try {
             const response = await api.post('/calls/upload-batch', { data: batch });
-            successCount += response.data?.data?.success || 0;
+            const result = response.data?.data;
+            if (result?.success === 0 && result?.errors?.length > 0) {
+              lastBatchError = result.errors[0];
+            }
+            successCount += result?.success || 0;
             totalProcessed += batch.length;
           } catch (batchError) {
             console.error(`Batch ${currentBatchNumber} failed:`, batchError);
-            // Continue with next batch even if one fails, or could stop here
+            lastBatchError = batchError.response?.data?.message || batchError.message;
           }
         }
 
-        setUploadStatus({ 
-          type: 'success', 
-          message: `Successfully uploaded ${successCount} of ${data.length} records.` 
-        });
+        if (successCount === 0 && data.length > 0) {
+          setUploadStatus({ 
+            type: 'error', 
+            message: `Failed to upload any records. ${lastBatchError || 'Please check if the database is connected.'}` 
+          });
+        } else {
+          setUploadStatus({ 
+            type: 'success', 
+            message: `Successfully uploaded ${successCount} of ${data.length} records.` 
+          });
+        }
         setUploadProgress(100);
       } catch (error) {
         console.error('❌ Data Processing Error:', error);
