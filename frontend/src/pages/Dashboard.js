@@ -215,6 +215,9 @@ const Dashboard = () => {
             }
             successCount += result?.success || 0;
             totalProcessed += batch.length;
+
+            // Yield to browser UI thread to prevent "Page Unresponsive" freezing
+            await new Promise(resolve => setTimeout(resolve, 10));
           } catch (batchError) {
             console.error(`Batch ${currentBatchNumber} failed:`, batchError);
             lastBatchError = batchError.response?.data?.message || batchError.message;
@@ -252,6 +255,7 @@ const Dashboard = () => {
       Papa.parse(file, {
         header: true,
         skipEmptyLines: true,
+        worker: true, // Use background Web Worker to prevent UI freeze
         complete: (results) => {
           processData(results.data);
         },
@@ -263,32 +267,37 @@ const Dashboard = () => {
         }
       });
     } else {
-      const reader = new FileReader();
-      reader.onload = async (evt) => {
-        try {
-          const arrayBuffer = evt.target.result;
-          const dataUint8 = new Uint8Array(arrayBuffer);
-          const wb = XLSX.read(dataUint8, { type: 'array' });
-          const wsname = wb.SheetNames[0];
-          const ws = wb.Sheets[wsname];
-          const data = XLSX.utils.sheet_to_json(ws);
-          
-          processData(data);
-        } catch (error) {
-          console.error('❌ Excel Parse Error:', error);
-          setUploadStatus({ type: 'error', message: 'Error processing Excel file. Ensure it is valid.' });
+      setUploadStatus({ type: 'info', message: 'Parsing Excel file (this may take a minute, please wait)...' });
+      
+      // Delay to let React render the "Parsing..." message before blocking the thread
+      setTimeout(() => {
+        const reader = new FileReader();
+        reader.onload = async (evt) => {
+          try {
+            const arrayBuffer = evt.target.result;
+            const dataUint8 = new Uint8Array(arrayBuffer);
+            const wb = XLSX.read(dataUint8, { type: 'array' });
+            const wsname = wb.SheetNames[0];
+            const ws = wb.Sheets[wsname];
+            const data = XLSX.utils.sheet_to_json(ws);
+            
+            processData(data);
+          } catch (error) {
+            console.error('❌ Excel Parse Error:', error);
+            setUploadStatus({ type: 'error', message: 'Error processing Excel file. Ensure it is valid.' });
+            setUploading(false);
+            if (dataFilesInput.current) dataFilesInput.current.value = '';
+          }
+        };
+
+        reader.onerror = () => {
+          setUploadStatus({ type: 'error', message: 'Error reading file.' });
           setUploading(false);
           if (dataFilesInput.current) dataFilesInput.current.value = '';
-        }
-      };
+        };
 
-      reader.onerror = () => {
-        setUploadStatus({ type: 'error', message: 'Error reading file.' });
-        setUploading(false);
-        if (dataFilesInput.current) dataFilesInput.current.value = '';
-      };
-
-      reader.readAsArrayBuffer(file);
+        reader.readAsArrayBuffer(file);
+      }, 50);
     }
   };
 
