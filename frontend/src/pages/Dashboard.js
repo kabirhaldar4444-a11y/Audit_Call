@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import api from '../utils/api';
 import AudioPlayer from '../components/AudioPlayer';
 import * as XLSX from 'xlsx';
+import Papa from 'papaparse';
 import './Dashboard.css';
 
 const Dashboard = () => {
@@ -178,17 +179,12 @@ const Dashboard = () => {
     setUploadStatus({ type: 'info', message: 'Reading file...' });
     setUploadProgress(0);
 
-    const reader = new FileReader();
-    reader.onload = async (evt) => {
-      try {
-        const bstr = evt.target.result;
-        const wb = XLSX.read(bstr, { type: 'binary' });
-        const wsname = wb.SheetNames[0];
-        const ws = wb.Sheets[wsname];
-        const data = XLSX.utils.sheet_to_json(ws);
+    const fileExtension = file.name.split('.').pop().toLowerCase();
 
+    const processData = async (data) => {
+      try {
         if (data.length === 0) {
-          setUploadStatus({ type: 'error', message: 'The file is empty.' });
+          setUploadStatus({ type: 'error', message: 'The file is empty or contains no valid rows.' });
           setUploading(false);
           return;
         }
@@ -241,7 +237,7 @@ const Dashboard = () => {
         setUploadProgress(100);
       } catch (error) {
         console.error('❌ Data Processing Error:', error);
-        setUploadStatus({ type: 'error', message: 'Error processing file. Please ensure it is a valid Excel/CSV.' });
+        setUploadStatus({ type: 'error', message: 'Error processing data.' });
       } finally {
         setUploading(false);
         setTimeout(() => {
@@ -252,12 +248,48 @@ const Dashboard = () => {
       }
     };
 
-    reader.onerror = () => {
-      setUploadStatus({ type: 'error', message: 'Error reading file.' });
-      setUploading(false);
-    };
+    if (fileExtension === 'csv') {
+      Papa.parse(file, {
+        header: true,
+        skipEmptyLines: true,
+        complete: (results) => {
+          processData(results.data);
+        },
+        error: (error) => {
+          console.error('❌ CSV Parse Error:', error);
+          setUploadStatus({ type: 'error', message: `Error parsing CSV: ${error.message}` });
+          setUploading(false);
+          if (dataFilesInput.current) dataFilesInput.current.value = '';
+        }
+      });
+    } else {
+      const reader = new FileReader();
+      reader.onload = async (evt) => {
+        try {
+          const arrayBuffer = evt.target.result;
+          const dataUint8 = new Uint8Array(arrayBuffer);
+          const wb = XLSX.read(dataUint8, { type: 'array' });
+          const wsname = wb.SheetNames[0];
+          const ws = wb.Sheets[wsname];
+          const data = XLSX.utils.sheet_to_json(ws);
+          
+          processData(data);
+        } catch (error) {
+          console.error('❌ Excel Parse Error:', error);
+          setUploadStatus({ type: 'error', message: 'Error processing Excel file. Ensure it is valid.' });
+          setUploading(false);
+          if (dataFilesInput.current) dataFilesInput.current.value = '';
+        }
+      };
 
-    reader.readAsBinaryString(file);
+      reader.onerror = () => {
+        setUploadStatus({ type: 'error', message: 'Error reading file.' });
+        setUploading(false);
+        if (dataFilesInput.current) dataFilesInput.current.value = '';
+      };
+
+      reader.readAsArrayBuffer(file);
+    }
   };
 
   const handleAudioUpload = async (e) => {
