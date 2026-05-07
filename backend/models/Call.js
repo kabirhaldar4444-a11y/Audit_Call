@@ -16,6 +16,9 @@ const callSchema = new mongoose.Schema(
     agentEmail: {
       type: String,
     },
+    firstDispose: {
+      type: String,
+    },
     customerName: {
       type: String,
     },

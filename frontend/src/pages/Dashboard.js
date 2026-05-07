@@ -508,6 +508,7 @@ const Dashboard = () => {
                   DURATION {sortConfig.key === 'duration' && (sortConfig.direction === 'asc' ? '🔼' : '🔽')}
                 </th>
                 <th>AGENT EMAIL</th>
+                <th>FIRST DISPOSE</th>
                 <th>
                   STATUS
                   <div className="header-filter-container">
@@ -544,6 +545,7 @@ const Dashboard = () => {
                   <td>{call?.date ? new Date(call.date).toLocaleString() : 'N/A'}</td>
                   <td>{call?.duration || '00:00'}</td>
                   <td>{call?.agentEmail || 'N/A'}</td>
+                  <td>{call?.firstDispose || 'N/A'}</td>
                   <td>
                     <span className={`status-pill ${call?.status || 'pending'}`}>
                       • {(call?.status || 'pending').charAt(0).toUpperCase() + (call?.status || 'pending').slice(1)}
@@ -573,7 +575,7 @@ const Dashboard = () => {
 
               {(calls?.length ?? 0) === 0 && (
                 <tr>
-                  <td colSpan="11" className="empty-row">No call records found. Upload an Excel file to get started.</td>
+                  <td colSpan="12" className="empty-row">No call records found. Upload an Excel file to get started.</td>
                 </tr>
               )}
             </tbody>

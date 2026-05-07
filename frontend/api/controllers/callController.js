@@ -209,6 +209,7 @@ const uploadCallData = async (req, res) => {
           'Unknown Agent'
         ).trim();
         const agentEmail = String(normalizedRow['agent email'] || normalizedRow['email'] || normalizedRow['agentemail'] || normalizedRow['email id'] || '').toLowerCase().trim();
+        const firstDispose = String(normalizedRow['first dispose'] || normalizedRow['first_dispose'] || normalizedRow['firstdispose'] || '').trim();
         const processName = String(normalizedRow['process'] || normalizedRow['dept'] || normalizedRow['department'] || normalizedRow['campaign'] || 'General').trim();
         
         const dateStr = (
@@ -243,6 +244,7 @@ const uploadCallData = async (req, res) => {
           callId: uniqueCallId,
           agentName,
           agentEmail,
+          firstDispose,
           process: processName,
           date: finalDate,
           phoneNumber,
@@ -382,6 +384,7 @@ const uploadCallDataBatch = async (req, res) => {
           'Unknown Agent'
         ).trim();
         const agentEmail = String(normalizedRow['agent email'] || normalizedRow['email'] || normalizedRow['agentemail'] || normalizedRow['email id'] || '').toLowerCase().trim();
+        const firstDispose = String(normalizedRow['first dispose'] || normalizedRow['first_dispose'] || normalizedRow['firstdispose'] || '').trim();
         const processName = String(normalizedRow['process'] || normalizedRow['dept'] || normalizedRow['department'] || normalizedRow['campaign'] || 'General').trim();
         
         let dateStr = (
@@ -424,6 +427,7 @@ const uploadCallDataBatch = async (req, res) => {
           callId: uniqueCallId,
           agentName,
           agentEmail,
+          firstDispose,
           process: processName,
           date: finalDate,
           phoneNumber,
