@@ -16,6 +16,7 @@ const Dashboard = () => {
   const [filters, setFilters] = useState({
     callId: '',
     agentName: '',
+    campaign: '',
     process: '',
     status: '',
     date: ''
@@ -499,6 +500,17 @@ const Dashboard = () => {
                   </div>
                 </th>
                 <th>
+                  Campaign
+                  <div className="header-filter-container">
+                    <input 
+                      className="col-filter" 
+                      placeholder="Search Campaign..." 
+                      value={filters.campaign}
+                      onChange={(e) => setFilters({...filters, campaign: e.target.value})}
+                    />
+                  </div>
+                </th>
+                <th>
                   PROCESS
                   <div className="header-filter-container">
                     <input 
@@ -556,6 +568,7 @@ const Dashboard = () => {
                   <td className="sl-no-col">{(page - 1) * (pagination?.limit ?? 20) + index + 1}</td>
                   <td className="bold">{call?.callId || 'N/A'}</td>
                   <td>{call?.agentName || 'N/A'}</td>
+                  <td>{call?.campaign || 'N/A'}</td>
                   <td>{call?.process || 'General'}</td>
                   <td>{call?.date ? new Date(call.date).toLocaleString() : 'N/A'}</td>
                   <td>{formatDuration(call?.duration)}</td>

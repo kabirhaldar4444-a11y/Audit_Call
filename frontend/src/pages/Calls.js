@@ -10,6 +10,7 @@ const Calls = () => {
   const [filters, setFilters] = useState({
     callId: '',
     agentName: '',
+    campaign: '',
     process: '',
     status: '',
     dateFrom: '',
@@ -226,6 +227,17 @@ const Calls = () => {
                       </div>
                     </th>
                     <th>
+                      Campaign
+                      <div className="header-filter-container">
+                        <input 
+                          className="col-filter" 
+                          placeholder="Search Campaign..." 
+                          value={filters.campaign}
+                          onChange={(e) => setFilters({...filters, campaign: e.target.value})}
+                        />
+                      </div>
+                    </th>
+                    <th>
                       Process
                       <div className="header-filter-container">
                         <input 
@@ -263,6 +275,7 @@ const Calls = () => {
                       <td>{(page - 1) * pagination.limit + index + 1}</td>
                       <td className="bold">{call.callId}</td>
                       <td>{call.agentName}</td>
+                      <td>{call.campaign || 'N/A'}</td>
                       <td>{call.process || 'General'}</td>
                       <td>{new Date(call.date).toLocaleString()}</td>
                       <td>{formatDuration(call.duration)}</td>

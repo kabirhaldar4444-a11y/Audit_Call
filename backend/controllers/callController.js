@@ -14,6 +14,7 @@ const getAllCalls = async (req, res) => {
     const filter = { isActive: true };
     if (req.query.callId) filter.callId = { $regex: req.query.callId, $options: 'i' };
     if (req.query.agentName) filter.agentName = { $regex: req.query.agentName, $options: 'i' };
+    if (req.query.campaign) filter.campaign = { $regex: req.query.campaign, $options: 'i' };
     if (req.query.process) filter.process = { $regex: req.query.process, $options: 'i' };
     if (req.query.status) filter.status = req.query.status;
     
@@ -209,7 +210,8 @@ const uploadCallData = async (req, res) => {
         const agentEmail = String(normalizedRow['agent email'] || normalizedRow['email'] || normalizedRow['agentemail'] || normalizedRow['email id'] || '').toLowerCase().trim();
         const firstDispose = String(normalizedRow['first dispose'] || normalizedRow['first_dispose'] || normalizedRow['firstdispose'] || '').trim();
         const dispose = String(normalizedRow['dispose'] || '').trim();
-        const processName = String(normalizedRow['process'] || normalizedRow['dept'] || normalizedRow['department'] || normalizedRow['campaign'] || 'General').trim();
+        const campaign = String(normalizedRow['campaign'] || '').trim();
+        const processName = String(normalizedRow['process'] || normalizedRow['dept'] || normalizedRow['department'] || 'General').trim();
         
         const dateStr = (
           normalizedRow['date & time'] || 
@@ -243,6 +245,7 @@ const uploadCallData = async (req, res) => {
           callId: uniqueCallId,
           agentName,
           agentEmail,
+          campaign,
           firstDispose,
           dispose,
           process: processName,
@@ -385,7 +388,8 @@ const uploadCallDataBatch = async (req, res) => {
         const agentEmail = String(normalizedRow['agent email'] || normalizedRow['email'] || normalizedRow['agentemail'] || normalizedRow['email id'] || '').toLowerCase().trim();
         const firstDispose = String(normalizedRow['first dispose'] || normalizedRow['first_dispose'] || normalizedRow['firstdispose'] || '').trim();
         const dispose = String(normalizedRow['dispose'] || '').trim();
-        const processName = String(normalizedRow['process'] || normalizedRow['dept'] || normalizedRow['department'] || normalizedRow['campaign'] || 'General').trim();
+        const campaign = String(normalizedRow['campaign'] || '').trim();
+        const processName = String(normalizedRow['process'] || normalizedRow['dept'] || normalizedRow['department'] || 'General').trim();
         
         let dateStr = (
           normalizedRow['date & time'] || 
@@ -427,6 +431,7 @@ const uploadCallDataBatch = async (req, res) => {
           callId: uniqueCallId,
           agentName,
           agentEmail,
+          campaign,
           firstDispose,
           dispose,
           process: processName,
@@ -645,6 +650,9 @@ const getCallsByDateRange = async (req, res) => {
 
     if (req.query.agentName) {
       filter.agentName = { $regex: req.query.agentName, $options: 'i' };
+    }
+    if (req.query.campaign) {
+      filter.campaign = { $regex: req.query.campaign, $options: 'i' };
     }
 
     if (req.query.process) {

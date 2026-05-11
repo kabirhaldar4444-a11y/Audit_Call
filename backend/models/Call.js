@@ -16,6 +16,10 @@ const callSchema = new mongoose.Schema(
     agentEmail: {
       type: String,
     },
+    campaign: {
+      type: String,
+      index: true,
+    },
     firstDispose: {
       type: String,
     },
