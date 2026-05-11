@@ -210,10 +210,10 @@ const uploadCallData = async (req, res) => {
           'Unknown Agent'
         ).trim();
         const agentEmail = String(normalizedRow['agent email'] || normalizedRow['email'] || normalizedRow['agentemail'] || normalizedRow['email id'] || '').toLowerCase().trim();
-        const firstDispose = String(normalizedRow['first dispose'] || normalizedRow['first_dispose'] || normalizedRow['firstdispose'] || '').trim();
-        const dispose = String(normalizedRow['dispose'] || '').trim();
-        const campaign = String(normalizedRow['campaign'] || '').trim();
-        const processName = String(normalizedRow['process'] || normalizedRow['dept'] || normalizedRow['department'] || 'General').trim();
+        const firstDispose = String(normalizedRow['first dispose'] || normalizedRow['first_dispose'] || normalizedRow['firstdispose'] || normalizedRow['sub disposition'] || '').trim();
+        const dispose = String(normalizedRow['dispose'] || normalizedRow['disposition'] || normalizedRow['status'] || '').trim();
+        const campaign = String(normalizedRow['campaign'] || normalizedRow['campaign name'] || normalizedRow['camp'] || '').trim();
+        const processName = String(normalizedRow['process'] || normalizedRow['dept'] || normalizedRow['department'] || normalizedRow['campaign'] || 'General').trim();
         
         const dateStr = (
           normalizedRow['date & time'] || 
@@ -392,10 +392,10 @@ const uploadCallDataBatch = async (req, res) => {
           'Unknown Agent'
         ).trim();
         const agentEmail = String(normalizedRow['agent email'] || normalizedRow['email'] || normalizedRow['agentemail'] || normalizedRow['email id'] || '').toLowerCase().trim();
-        const firstDispose = String(normalizedRow['first dispose'] || normalizedRow['first_dispose'] || normalizedRow['firstdispose'] || '').trim();
-        const dispose = String(normalizedRow['dispose'] || '').trim();
-        const campaign = String(normalizedRow['campaign'] || '').trim();
-        const processName = String(normalizedRow['process'] || normalizedRow['dept'] || normalizedRow['department'] || 'General').trim();
+        const firstDispose = String(normalizedRow['first dispose'] || normalizedRow['first_dispose'] || normalizedRow['firstdispose'] || normalizedRow['sub disposition'] || '').trim();
+        const dispose = String(normalizedRow['dispose'] || normalizedRow['disposition'] || normalizedRow['status'] || '').trim();
+        const campaign = String(normalizedRow['campaign'] || normalizedRow['campaign name'] || normalizedRow['camp'] || '').trim();
+        const processName = String(normalizedRow['process'] || normalizedRow['dept'] || normalizedRow['department'] || normalizedRow['campaign'] || 'General').trim();
         
         let dateStr = (
           normalizedRow['date & time'] || 

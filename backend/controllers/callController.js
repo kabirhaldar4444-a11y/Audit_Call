@@ -17,7 +17,7 @@ const getAllCalls = async (req, res) => {
     if (req.query.campaign) filter.campaign = { $regex: req.query.campaign, $options: 'i' };
     if (req.query.process) filter.process = { $regex: req.query.process, $options: 'i' };
     if (req.query.status) filter.status = req.query.status;
-    
+
     // Date range filtering
     if (req.query.dateFrom || req.query.dateTo) {
       filter.date = {};
@@ -117,7 +117,7 @@ const createCall = async (req, res) => {
       phoneNumber,
       duration,
       remarks,
-      audioUrl: '', 
+      audioUrl: '',
       uploadedBy: req.userId,
     });
 
@@ -167,15 +167,15 @@ const uploadCallData = async (req, res) => {
         });
 
         // Robust Call ID extraction - prioritize user's CALL ID header
-        const rawCallId = 
-          normalizedRow['call id'] || 
-          normalizedRow['callid'] || 
-          normalizedRow['sl no'] || 
-          normalizedRow['serial no'] || 
-          normalizedRow['slno'] || 
-          normalizedRow['id'] || 
-          normalizedRow['uid'] || 
-          normalizedRow['record id'] || 
+        const rawCallId =
+          normalizedRow['call id'] ||
+          normalizedRow['callid'] ||
+          normalizedRow['sl no'] ||
+          normalizedRow['serial no'] ||
+          normalizedRow['slno'] ||
+          normalizedRow['id'] ||
+          normalizedRow['uid'] ||
+          normalizedRow['record id'] ||
           normalizedRow['lead id'] ||
           Object.values(row)[0];
 
@@ -198,30 +198,30 @@ const uploadCallData = async (req, res) => {
         // Map fields
         // Map fields - prioritize exact user headers
         const agentName = String(
-          normalizedRow['agent'] || 
-          normalizedRow['agent name'] || 
-          normalizedRow['agent full name'] || 
-          normalizedRow['agentname'] || 
-          normalizedRow['staff'] || 
-          normalizedRow['caller'] || 
-          normalizedRow['user'] || 
+          normalizedRow['agent'] ||
+          normalizedRow['agent name'] ||
+          normalizedRow['agent full name'] ||
+          normalizedRow['agentname'] ||
+          normalizedRow['staff'] ||
+          normalizedRow['caller'] ||
+          normalizedRow['user'] ||
           'Unknown Agent'
         ).trim();
         const agentEmail = String(normalizedRow['agent email'] || normalizedRow['email'] || normalizedRow['agentemail'] || normalizedRow['email id'] || '').toLowerCase().trim();
-        const firstDispose = String(normalizedRow['first dispose'] || normalizedRow['first_dispose'] || normalizedRow['firstdispose'] || '').trim();
-        const dispose = String(normalizedRow['dispose'] || '').trim();
-        const campaign = String(normalizedRow['campaign'] || '').trim();
-        const processName = String(normalizedRow['process'] || normalizedRow['dept'] || normalizedRow['department'] || 'General').trim();
-        
+        const firstDispose = String(normalizedRow['first dispose'] || normalizedRow['first_dispose'] || normalizedRow['firstdispose'] || normalizedRow['sub disposition'] || '').trim();
+        const dispose = String(normalizedRow['dispose'] || normalizedRow['disposition'] || normalizedRow['status'] || '').trim();
+        const campaign = String(normalizedRow['campaign'] || normalizedRow['campaign name'] || normalizedRow['camp'] || '').trim();
+        const processName = String(normalizedRow['process'] || normalizedRow['dept'] || normalizedRow['department'] || normalizedRow['campaign'] || 'General').trim();
+
         const dateStr = (
-          normalizedRow['date & time'] || 
-          normalizedRow['date time'] || 
-          normalizedRow['date'] || 
-          normalizedRow['timestamp'] || 
-          normalizedRow['time'] || 
-          normalizedRow['date-time'] || 
-          normalizedRow['call date'] || 
-          normalizedRow['transaction date'] || 
+          normalizedRow['date & time'] ||
+          normalizedRow['date time'] ||
+          normalizedRow['date'] ||
+          normalizedRow['timestamp'] ||
+          normalizedRow['time'] ||
+          normalizedRow['date-time'] ||
+          normalizedRow['call date'] ||
+          normalizedRow['transaction date'] ||
           new Date().toISOString()
         ).toString().trim();
         const callTime = String(normalizedRow['call time'] || '').trim();
@@ -230,12 +230,12 @@ const uploadCallData = async (req, res) => {
 
         const phoneNumber = String(normalizedRow['phone number'] || normalizedRow['phone'] || normalizedRow['customer number'] || normalizedRow['mobile'] || '').trim();
         const duration = String(
-          normalizedRow['duration'] || 
-          normalizedRow['talktime'] || 
-          normalizedRow['talk time'] || 
-          normalizedRow['call duration'] || 
-          normalizedRow['call time'] || 
-          normalizedRow['length'] || 
+          normalizedRow['duration'] ||
+          normalizedRow['talktime'] ||
+          normalizedRow['talk time'] ||
+          normalizedRow['call duration'] ||
+          normalizedRow['call time'] ||
+          normalizedRow['length'] ||
           ''
         ).trim();
         const remarks = String(normalizedRow['remarks'] || normalizedRow['comment'] || normalizedRow['comment'] || '').trim();
@@ -286,7 +286,7 @@ const uploadCallData = async (req, res) => {
               upsert: true
             }
           }));
-          
+
           const bulkResult = await Call.bulkWrite(bulkOps, { ordered: false });
           results.success = (bulkResult.upsertedCount || 0) + (bulkResult.modifiedCount || 0) + (bulkResult.matchedCount || 0);
         } catch (dbErr) {
@@ -312,7 +312,7 @@ const uploadCallData = async (req, res) => {
   } catch (error) {
     console.error('❌ UPLOAD ERROR:', error);
     if (req.file && fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
-    
+
     let errorMessage = 'Error uploading data';
     if (error.code === 11000) errorMessage = 'Duplicate Call IDs detected in the system.';
     else if (error.name === 'ValidationError') errorMessage = `Data validation failed: ${Object.values(error.errors).map(e => e.message).join(', ')}`;
@@ -351,15 +351,15 @@ const uploadCallDataBatch = async (req, res) => {
           normalizedRow[normalizedKey] = row[key];
         });
 
-        const rawCallId = 
-          normalizedRow['call id'] || 
-          normalizedRow['callid'] || 
-          normalizedRow['sl no'] || 
-          normalizedRow['serial no'] || 
-          normalizedRow['slno'] || 
-          normalizedRow['id'] || 
-          normalizedRow['uid'] || 
-          normalizedRow['record id'] || 
+        const rawCallId =
+          normalizedRow['call id'] ||
+          normalizedRow['callid'] ||
+          normalizedRow['sl no'] ||
+          normalizedRow['serial no'] ||
+          normalizedRow['slno'] ||
+          normalizedRow['id'] ||
+          normalizedRow['uid'] ||
+          normalizedRow['record id'] ||
           normalizedRow['lead id'] ||
           Object.values(row)[0];
 
@@ -378,52 +378,52 @@ const uploadCallDataBatch = async (req, res) => {
         seenIdsInBatch.add(uniqueCallId);
 
         const agentName = String(
-          normalizedRow['agent'] || 
-          normalizedRow['agent name'] || 
-          normalizedRow['agent full name'] || 
-          normalizedRow['agentname'] || 
-          normalizedRow['staff'] || 
-          normalizedRow['caller'] || 
-          normalizedRow['user'] || 
+          normalizedRow['agent'] ||
+          normalizedRow['agent name'] ||
+          normalizedRow['agent full name'] ||
+          normalizedRow['agentname'] ||
+          normalizedRow['staff'] ||
+          normalizedRow['caller'] ||
+          normalizedRow['user'] ||
           'Unknown Agent'
         ).trim();
         const agentEmail = String(normalizedRow['agent email'] || normalizedRow['email'] || normalizedRow['agentemail'] || normalizedRow['email id'] || '').toLowerCase().trim();
-        const firstDispose = String(normalizedRow['first dispose'] || normalizedRow['first_dispose'] || normalizedRow['firstdispose'] || '').trim();
-        const dispose = String(normalizedRow['dispose'] || '').trim();
-        const campaign = String(normalizedRow['campaign'] || '').trim();
-        const processName = String(normalizedRow['process'] || normalizedRow['dept'] || normalizedRow['department'] || 'General').trim();
-        
+        const firstDispose = String(normalizedRow['first dispose'] || normalizedRow['first_dispose'] || normalizedRow['firstdispose'] || normalizedRow['sub disposition'] || '').trim();
+        const dispose = String(normalizedRow['dispose'] || normalizedRow['disposition'] || normalizedRow['status'] || '').trim();
+        const campaign = String(normalizedRow['campaign'] || normalizedRow['campaign name'] || normalizedRow['camp'] || '').trim();
+        const processName = String(normalizedRow['process'] || normalizedRow['dept'] || normalizedRow['department'] || normalizedRow['campaign'] || 'General').trim();
+
         let dateStr = (
-          normalizedRow['date & time'] || 
-          normalizedRow['date time'] || 
-          normalizedRow['date'] || 
-          normalizedRow['timestamp'] || 
-          normalizedRow['time'] || 
-          normalizedRow['date-time'] || 
-          normalizedRow['call date'] || 
-          normalizedRow['transaction date'] || 
+          normalizedRow['date & time'] ||
+          normalizedRow['date time'] ||
+          normalizedRow['date'] ||
+          normalizedRow['timestamp'] ||
+          normalizedRow['time'] ||
+          normalizedRow['date-time'] ||
+          normalizedRow['call date'] ||
+          normalizedRow['transaction date'] ||
           new Date().toISOString()
         );
         const callTime = String(normalizedRow['call time'] || '').trim();
-        
+
         let date;
         // Handle Excel numeric dates if they come through
         if (typeof dateStr === 'number') {
-           date = new Date(Math.round((dateStr - 25569) * 86400 * 1000));
+          date = new Date(Math.round((dateStr - 25569) * 86400 * 1000));
         } else {
-           date = new Date(dateStr.toString().trim());
+          date = new Date(dateStr.toString().trim());
         }
 
         const finalDate = isNaN(date.getTime()) ? new Date() : date;
 
         const phoneNumber = String(normalizedRow['phone number'] || normalizedRow['phone'] || normalizedRow['customer number'] || normalizedRow['mobile'] || '').trim();
         const duration = String(
-          normalizedRow['duration'] || 
-          normalizedRow['talktime'] || 
-          normalizedRow['talk time'] || 
-          normalizedRow['call duration'] || 
-          normalizedRow['call time'] || 
-          normalizedRow['length'] || 
+          normalizedRow['duration'] ||
+          normalizedRow['talktime'] ||
+          normalizedRow['talk time'] ||
+          normalizedRow['call duration'] ||
+          normalizedRow['call time'] ||
+          normalizedRow['length'] ||
           ''
         ).trim();
         const remarks = String(normalizedRow['remarks'] || normalizedRow['comment'] || normalizedRow['comment'] || '').trim();
@@ -473,14 +473,14 @@ const uploadCallDataBatch = async (req, res) => {
               upsert: true
             }
           }));
-          
+
           const bulkResult = await Call.bulkWrite(bulkOps, { ordered: false });
           results.success = (bulkResult.upsertedCount || 0) + (bulkResult.modifiedCount || 0) + (bulkResult.matchedCount || 0);
         }
 
         // 2. Always save to local storage as backup (or primary if offline)
         const localSaved = saveManyToLocalFile(callsToSave);
-        
+
         // If we are offline, use the local save count as success
         if (isOffline) {
           if (localSaved) {
@@ -565,12 +565,12 @@ const getDashboardStats = async (req, res) => {
           Call.countDocuments({ isActive: true }),
           Call.countDocuments({ status: 'pending', isActive: true }),
           Call.countDocuments({ status: 'audited', isActive: true }),
-          Call.countDocuments({ 
+          Call.countDocuments({
             date: { $gte: last7Days },
-            isActive: true 
+            isActive: true
           })
         ]);
-        
+
         stats = { totalCalls, pendingCalls, auditedCalls, callsInLast7Days };
       } catch (dbError) {
         console.warn('⚠️  MongoDB Stats failed, falling back to local:', dbError.message);
@@ -591,13 +591,13 @@ const getDashboardStats = async (req, res) => {
         callsInLast7Days: localCalls.filter(c => new Date(c.date) >= new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)).length
       };
     }
-    
-    res.status(200).json({ 
-      message: 'Dashboard stats retrieved successfully', 
-      data: { 
+
+    res.status(200).json({
+      message: 'Dashboard stats retrieved successfully',
+      data: {
         ...stats,
         databaseMode: isOffline ? 'offline' : 'online'
-      } 
+      }
     });
   } catch (error) {
     console.error('Error retrieving dashboard stats:', error);
@@ -623,10 +623,10 @@ const updateCallStatus = async (req, res) => {
 const getCallsByDateRange = async (req, res) => {
   try {
     const { startDate, endDate } = req.query;
-    
+
     if (!startDate || !endDate) {
-      return res.status(400).json({ 
-        message: 'Please provide startDate and endDate in query parameters' 
+      return res.status(400).json({
+        message: 'Please provide startDate and endDate in query parameters'
       });
     }
 
@@ -635,8 +635,8 @@ const getCallsByDateRange = async (req, res) => {
     end.setHours(23, 59, 59, 999);
 
     if (isNaN(start.getTime()) || isNaN(end.getTime())) {
-      return res.status(400).json({ 
-        message: 'Invalid date format. Use YYYY-MM-DD' 
+      return res.status(400).json({
+        message: 'Invalid date format. Use YYYY-MM-DD'
       });
     }
 
@@ -694,19 +694,19 @@ const getCallsByDateRange = async (req, res) => {
     });
   } catch (error) {
     console.error('Error in getCallsByDateRange:', error);
-    res.status(500).json({ 
-      message: 'Error retrieving calls by date range', 
-      error: error.message 
+    res.status(500).json({
+      message: 'Error retrieving calls by date range',
+      error: error.message
     });
   }
 };
 
-module.exports = { 
-  getAllCalls, 
-  getCallById, 
-  createCall, 
-  getDashboardStats, 
-  uploadCallData, 
+module.exports = {
+  getAllCalls,
+  getCallById,
+  createCall,
+  getDashboardStats,
+  uploadCallData,
   uploadCallDataBatch,
   uploadAudio,
   deleteCalls,
