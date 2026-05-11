@@ -99,7 +99,7 @@ const getCallById = async (req, res) => {
 
 const createCall = async (req, res) => {
   try {
-    const { callId, agentName, date, phoneNumber, duration, remarks } = req.body;
+    const { callId, agentName, agentEmail, campaign, firstDispose, dispose, process, date, callTime, phoneNumber, duration, remarks, customerName } = req.body;
 
     if (!callId || !agentName || !date) {
       return res.status(400).json({ message: 'Please provide all required fields' });
@@ -113,11 +113,17 @@ const createCall = async (req, res) => {
     const newCall = new Call({
       callId,
       agentName,
+      agentEmail,
+      campaign,
+      firstDispose,
+      dispose,
+      process: process || 'General',
       date: new Date(date),
+      callTime,
       phoneNumber,
       duration,
       remarks,
-      audioUrl: '',
+      customerName,
       uploadedBy: req.userId,
     });
 
@@ -208,10 +214,10 @@ const uploadCallData = async (req, res) => {
           'Unknown Agent'
         ).trim();
         const agentEmail = String(normalizedRow['agent email'] || normalizedRow['email'] || normalizedRow['agentemail'] || normalizedRow['email id'] || '').toLowerCase().trim();
-        const firstDispose = String(normalizedRow['first dispose'] || normalizedRow['first_dispose'] || normalizedRow['firstdispose'] || normalizedRow['sub disposition'] || '').trim();
-        const dispose = String(normalizedRow['dispose'] || normalizedRow['disposition'] || normalizedRow['status'] || '').trim();
-        const campaign = String(normalizedRow['campaign'] || normalizedRow['campaign name'] || normalizedRow['camp'] || '').trim();
-        const processName = String(normalizedRow['process'] || normalizedRow['dept'] || normalizedRow['department'] || normalizedRow['campaign'] || 'General').trim();
+        const firstDispose = String(normalizedRow['first dispose'] || normalizedRow['first_dispose'] || normalizedRow['firstdispose'] || normalizedRow['sub disposition'] || normalizedRow['sub_disposition'] || normalizedRow['subdisposition'] || normalizedRow['reason'] || '').trim();
+        const dispose = String(normalizedRow['dispose'] || normalizedRow['disposition'] || normalizedRow['status'] || normalizedRow['result'] || normalizedRow['call result'] || '').trim();
+        const campaign = String(normalizedRow['campaign'] || normalizedRow['campaign name'] || normalizedRow['campaign_name'] || normalizedRow['campaign id'] || normalizedRow['campaign_id'] || normalizedRow['camp'] || '').trim();
+        const processName = String(normalizedRow['process'] || normalizedRow['dept'] || normalizedRow['department'] || normalizedRow['department name'] || normalizedRow['campaign'] || 'General').trim();
 
         const dateStr = (
           normalizedRow['date & time'] ||
@@ -223,10 +229,20 @@ const uploadCallData = async (req, res) => {
           normalizedRow['call date'] ||
           normalizedRow['transaction date'] ||
           new Date().toISOString()
-        ).toString().trim();
+        );
         const callTime = String(normalizedRow['call time'] || '').trim();
-        const date = new Date(dateStr);
-        const finalDate = isNaN(date.getTime()) ? new Date() : date;
+
+        let date;
+        if (dateStr instanceof Date) {
+          date = dateStr;
+        } else if (typeof dateStr === 'number') {
+          date = new Date(Math.round((dateStr - 25569) * 86400 * 1000));
+        } else if (dateStr) {
+          date = new Date(dateStr.toString().trim());
+        } else {
+          date = new Date();
+        }
+        const finalDate = (date && !isNaN(date.getTime())) ? date : new Date();
 
         const phoneNumber = String(normalizedRow['phone number'] || normalizedRow['phone'] || normalizedRow['customer number'] || normalizedRow['mobile'] || '').trim();
         const duration = String(
@@ -388,10 +404,10 @@ const uploadCallDataBatch = async (req, res) => {
           'Unknown Agent'
         ).trim();
         const agentEmail = String(normalizedRow['agent email'] || normalizedRow['email'] || normalizedRow['agentemail'] || normalizedRow['email id'] || '').toLowerCase().trim();
-        const firstDispose = String(normalizedRow['first dispose'] || normalizedRow['first_dispose'] || normalizedRow['firstdispose'] || normalizedRow['sub disposition'] || '').trim();
-        const dispose = String(normalizedRow['dispose'] || normalizedRow['disposition'] || normalizedRow['status'] || '').trim();
-        const campaign = String(normalizedRow['campaign'] || normalizedRow['campaign name'] || normalizedRow['camp'] || '').trim();
-        const processName = String(normalizedRow['process'] || normalizedRow['dept'] || normalizedRow['department'] || normalizedRow['campaign'] || 'General').trim();
+        const firstDispose = String(normalizedRow['first dispose'] || normalizedRow['first_dispose'] || normalizedRow['firstdispose'] || normalizedRow['sub disposition'] || normalizedRow['sub_disposition'] || normalizedRow['subdisposition'] || normalizedRow['reason'] || '').trim();
+        const dispose = String(normalizedRow['dispose'] || normalizedRow['disposition'] || normalizedRow['status'] || normalizedRow['result'] || normalizedRow['call result'] || '').trim();
+        const campaign = String(normalizedRow['campaign'] || normalizedRow['campaign name'] || normalizedRow['campaign_name'] || normalizedRow['campaign id'] || normalizedRow['campaign_id'] || normalizedRow['camp'] || '').trim();
+        const processName = String(normalizedRow['process'] || normalizedRow['dept'] || normalizedRow['department'] || normalizedRow['department name'] || normalizedRow['campaign'] || 'General').trim();
 
         let dateStr = (
           normalizedRow['date & time'] ||
@@ -407,14 +423,17 @@ const uploadCallDataBatch = async (req, res) => {
         const callTime = String(normalizedRow['call time'] || '').trim();
 
         let date;
-        // Handle Excel numeric dates if they come through
-        if (typeof dateStr === 'number') {
+        if (dateStr instanceof Date) {
+          date = dateStr;
+        } else if (typeof dateStr === 'number') {
           date = new Date(Math.round((dateStr - 25569) * 86400 * 1000));
-        } else {
+        } else if (dateStr) {
           date = new Date(dateStr.toString().trim());
+        } else {
+          date = new Date();
         }
 
-        const finalDate = isNaN(date.getTime()) ? new Date() : date;
+        const finalDate = (date && !isNaN(date.getTime())) ? date : new Date();
 
         const phoneNumber = String(normalizedRow['phone number'] || normalizedRow['phone'] || normalizedRow['customer number'] || normalizedRow['mobile'] || '').trim();
         const duration = String(
