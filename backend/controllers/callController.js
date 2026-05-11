@@ -176,25 +176,45 @@ const uploadCallData = async (req, res) => {
           if (!normalizedRow[noSpaceKey]) normalizedRow[noSpaceKey] = row[key];
         });
 
-        // Robust Call ID extraction - prioritize user's CALL ID header
-        const rawCallId =
-          normalizedRow['call id'] ||
-          normalizedRow['callid'] ||
-          normalizedRow['sl no'] ||
-          normalizedRow['serial no'] ||
-          normalizedRow['slno'] ||
-          normalizedRow['id'] ||
-          normalizedRow['uid'] ||
-          normalizedRow['record id'] ||
-          normalizedRow['lead id'] ||
-          Object.values(row)[0];
+        // Smart Value Getter with placeholder detection
+        const getVal = (keys) => {
+          for (const k of keys) {
+            let val = normalizedRow[k];
+            if (val !== undefined && val !== null) {
+              let s = String(val).trim();
+              if (s !== '' && s !== '--' && s !== '---' && s !== 'N/A' && s !== 'null' && s !== 'undefined') return s;
+            }
+          }
+          return '';
+        };
+
+        // Robust Call ID extraction
+        let rawCallId = getVal(['call id', 'callid', 'sl no', 'serial no', 'slno', 'id', 'uid', 'record id', 'recordid', 'lead id', 'leadid']);
+        
+        // If still no ID, look for a UUID-like string in any column
+        if (!rawCallId) {
+          const allValues = Object.values(row);
+          for (const val of allValues) {
+            const s = String(val).trim();
+            // Basic UUID/Unique ID check (longer than 15 chars, contains hyphens or mix of hex)
+            if (s.length > 15 && (s.includes('-') || /^[a-f0-9]{15,}$/i.test(s))) {
+              rawCallId = s;
+              break;
+            }
+          }
+        }
+
+        // Final fallback: First column if it's not a date, otherwise generic ID
+        if (!rawCallId) {
+          const firstVal = String(Object.values(row)[0] || '').trim();
+          if (firstVal && firstVal.length > 3 && !firstVal.includes('-202') && !firstVal.includes('/202')) {
+            rawCallId = firstVal;
+          } else {
+            rawCallId = `GEN-${batchTimestamp}-${i}`;
+          }
+        }
 
         let callId = String(rawCallId || '').trim();
-
-        if (!callId) {
-          // Unique ID for the batch: timestamp-index
-          callId = `GEN-${batchTimestamp}-${i}`;
-        }
 
         // Prevent collisions within this upload batch
         let uniqueCallId = callId;
@@ -207,60 +227,48 @@ const uploadCallData = async (req, res) => {
 
         // Map fields
         // Map fields - prioritize exact user headers
-        const agentName = String(
-          normalizedRow['agent'] ||
-          normalizedRow['agent name'] ||
-          normalizedRow['agent full name'] ||
-          normalizedRow['agentname'] ||
-          normalizedRow['staff'] ||
-          normalizedRow['caller'] ||
-          normalizedRow['user'] ||
-          'Unknown Agent'
-        ).trim();
-        const agentEmail = String(normalizedRow['agent email'] || normalizedRow['email'] || normalizedRow['agentemail'] || normalizedRow['email id'] || '').toLowerCase().trim();
-        const firstDispose = String(normalizedRow['first dispose'] || normalizedRow['first_dispose'] || normalizedRow['firstdispose'] || normalizedRow['sub disposition'] || normalizedRow['sub_disposition'] || normalizedRow['subdisposition'] || normalizedRow['reason'] || '').trim();
-        const dispose = String(normalizedRow['dispose'] || normalizedRow['disposition'] || normalizedRow['status'] || normalizedRow['result'] || normalizedRow['call result'] || '').trim();
-        const campaign = String(normalizedRow['campaign'] || normalizedRow['campaign name'] || normalizedRow['campaign_name'] || normalizedRow['campaign id'] || normalizedRow['campaign_id'] || normalizedRow['camp'] || '').trim();
-        const processName = String(normalizedRow['process'] || normalizedRow['dept'] || normalizedRow['department'] || normalizedRow['department name'] || normalizedRow['campaign'] || 'General').trim();
+        const agentName = String(getVal(['agent', 'agent name', 'agentname', 'agent full name', 'agentfullname', 'staff', 'caller', 'user']) || 'Unknown Agent').trim();
+        const agentEmail = String(getVal(['agent email', 'agentemail', 'email', 'email id', 'emailid']) || '').toLowerCase().trim();
+        const firstDispose = String(getVal(['first dispose', 'first_dispose', 'firstdisposition', 'sub disposition', 'sub_disposition', 'subdisposition', 'reason', 'substatus', 'sub-status']) || '').trim();
+        const dispose = String(getVal(['dispose', 'disposition', 'status', 'result', 'call result', 'callresult', 'resolution', 'terminating reason', 'disconnect reason', 'agent status', 'call status']) || '').trim();
+        const campaign = String(getVal(['campaign', 'campaign name', 'campaign_name', 'campaign id', 'campaign_id', 'camp', 'campaignname', 'campaignid', 'queue', 'queue name']) || '').trim();
+        const processName = String(getVal(['process', 'dept', 'department', 'department name', 'departmentname', 'campaign', 'project', 'client']) || 'General').trim();
 
-        const dateStr = (
-          normalizedRow['date & time'] ||
-          normalizedRow['date time'] ||
-          normalizedRow['date'] ||
-          normalizedRow['timestamp'] ||
-          normalizedRow['time'] ||
-          normalizedRow['date-time'] ||
-          normalizedRow['call date'] ||
-          normalizedRow['transaction date'] ||
-          new Date().toISOString()
-        );
-        const callTime = String(normalizedRow['call time'] || '').trim();
-
+        const dateStr = getVal(['date & time', 'date time', 'datetime', 'date', 'timestamp', 'time', 'date-time', 'call date', 'calldate', 'transaction date', 'transactiondate']);
+        const callTime = String(getVal(['call time', 'calltime', 'time of call', 'timeofcall']) || '').trim();
+        
         let date;
         if (dateStr instanceof Date) {
           date = dateStr;
         } else if (typeof dateStr === 'number') {
           date = new Date(Math.round((dateStr - 25569) * 86400 * 1000));
         } else if (dateStr) {
-          date = new Date(dateStr.toString().trim());
+          let s = dateStr.toString().trim();
+          // DD-MM-YYYY format handler
+          const ddmm = s.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})(.*)$/);
+          if (ddmm) {
+            const day = parseInt(ddmm[1]);
+            const month = parseInt(ddmm[2]) - 1;
+            const year = parseInt(ddmm[3]);
+            const timePart = ddmm[4].trim();
+            if (timePart) {
+              date = new Date(year, month, day, ...timePart.split(/[:\s]/).filter(x => x).map(Number));
+            } else {
+              date = new Date(year, month, day);
+            }
+          } else {
+            date = new Date(s);
+          }
         } else {
           date = new Date();
         }
         const finalDate = (date && !isNaN(date.getTime())) ? date : new Date();
 
-        const phoneNumber = String(normalizedRow['phone number'] || normalizedRow['phone'] || normalizedRow['customer number'] || normalizedRow['mobile'] || '').trim();
-        const duration = String(
-          normalizedRow['duration'] ||
-          normalizedRow['talktime'] ||
-          normalizedRow['talk time'] ||
-          normalizedRow['call duration'] ||
-          normalizedRow['call time'] ||
-          normalizedRow['length'] ||
-          ''
-        ).trim();
-        const remarks = String(normalizedRow['remarks'] || normalizedRow['comment'] || normalizedRow['comment'] || '').trim();
-        const customerName = String(normalizedRow['customer name'] || normalizedRow['customer'] || '').trim();
-        const recordingPath = String(normalizedRow['recording path'] || normalizedRow['audio link'] || normalizedRow['audio url'] || normalizedRow['recording link'] || '').trim();
+        const phoneNumber = String(getVal(['phone number', 'phonenumber', 'phone', 'customer number', 'customernumber', 'mobile', 'contact']) || '').trim();
+        const duration = String(getVal(['duration', 'talktime', 'talk time', 'call duration', 'callduration', 'call time', 'calltime', 'length']) || '').trim();
+        const remarks = String(getVal(['remarks', 'comment', 'notes', 'feedback']) || '').trim();
+        const customerName = String(getVal(['customer name', 'customername', 'customer', 'client name', 'clientname']) || '').trim();
+        const recordingPath = String(getVal(['recording path', 'recordingpath', 'audio link', 'audiolink', 'audio url', 'audiourl', 'recording link', 'recordinglink']) || '').trim();
 
         const callDoc = {
           callId: uniqueCallId,

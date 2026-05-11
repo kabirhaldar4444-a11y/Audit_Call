@@ -229,21 +229,12 @@ const uploadCallData = async (req, res) => {
 
         // Map fields
         // Map fields - prioritize exact user headers
-        const agentName = String(
-          normalizedRow['agent'] || 
-          normalizedRow['agent name'] || 
-          normalizedRow['agent full name'] || 
-          normalizedRow['agentname'] || 
-          normalizedRow['staff'] || 
-          normalizedRow['caller'] || 
-          normalizedRow['user'] || 
-          'Unknown Agent'
-        ).trim();
-        const agentEmail = String(normalizedRow['agent email'] || normalizedRow['email'] || normalizedRow['agentemail'] || normalizedRow['email id'] || '').toLowerCase().trim();
-        const firstDispose = String(normalizedRow['first dispose'] || normalizedRow['first_dispose'] || normalizedRow['firstdispose'] || normalizedRow['sub disposition'] || normalizedRow['sub_disposition'] || normalizedRow['subdisposition'] || normalizedRow['reason'] || '').trim();
-        const dispose = String(normalizedRow['dispose'] || normalizedRow['disposition'] || normalizedRow['status'] || normalizedRow['result'] || normalizedRow['call result'] || '').trim();
-        const campaign = String(normalizedRow['campaign'] || normalizedRow['campaign name'] || normalizedRow['campaign_name'] || normalizedRow['campaign id'] || normalizedRow['campaign_id'] || normalizedRow['camp'] || '').trim();
-        const processName = String(normalizedRow['process'] || normalizedRow['dept'] || normalizedRow['department'] || normalizedRow['department name'] || normalizedRow['campaign'] || 'General').trim();
+        const agentName = String(getVal(['agent', 'agent name', 'agentname', 'agent full name', 'agentfullname', 'staff', 'caller', 'user']) || 'Unknown Agent').trim();
+        const agentEmail = String(getVal(['agent email', 'agentemail', 'email', 'email id', 'emailid']) || '').toLowerCase().trim();
+        const firstDispose = String(getVal(['first dispose', 'first_dispose', 'firstdisposition', 'sub disposition', 'sub_disposition', 'subdisposition', 'reason', 'substatus', 'sub-status']) || '').trim();
+        const dispose = String(getVal(['dispose', 'disposition', 'status', 'result', 'call result', 'callresult', 'resolution', 'terminating reason', 'disconnect reason', 'agent status', 'call status']) || '').trim();
+        const campaign = String(getVal(['campaign', 'campaign name', 'campaign_name', 'campaign id', 'campaign_id', 'camp', 'campaignname', 'campaignid', 'queue', 'queue name']) || '').trim();
+        const processName = String(getVal(['process', 'dept', 'department', 'department name', 'departmentname', 'campaign', 'project', 'client']) || 'General').trim();
         
         const dateStr = getVal(['date & time', 'date time', 'datetime', 'date', 'timestamp', 'time', 'date-time', 'call date', 'calldate', 'transaction date', 'transactiondate']);
         const callTime = String(getVal(['call time', 'calltime', 'time of call', 'timeofcall']) || '').trim();
@@ -446,10 +437,10 @@ const uploadCallDataBatch = async (req, res) => {
 
         const agentName = String(getVal(['agent', 'agent name', 'agentname', 'agent full name', 'agentfullname', 'staff', 'caller', 'user']) || 'Unknown Agent').trim();
         const agentEmail = String(getVal(['agent email', 'agentemail', 'email', 'email id', 'emailid']) || '').toLowerCase().trim();
-        const firstDispose = String(getVal(['first dispose', 'first_dispose', 'firstdispose', 'sub disposition', 'sub_disposition', 'subdisposition', 'reason']) || '').trim();
-        const dispose = String(getVal(['dispose', 'disposition', 'status', 'result', 'call result', 'callresult']) || '').trim();
-        const campaign = String(getVal(['campaign', 'campaign name', 'campaign_name', 'campaign id', 'campaign_id', 'camp', 'campaignname', 'campaignid']) || '').trim();
-        const processName = String(getVal(['process', 'dept', 'department', 'department name', 'departmentname', 'campaign']) || 'General').trim();
+        const firstDispose = String(getVal(['first dispose', 'first_dispose', 'firstdisposition', 'sub disposition', 'sub_disposition', 'subdisposition', 'reason', 'substatus', 'sub-status']) || '').trim();
+        const dispose = String(getVal(['dispose', 'disposition', 'status', 'result', 'call result', 'callresult', 'resolution', 'terminating reason', 'disconnect reason', 'agent status', 'call status']) || '').trim();
+        const campaign = String(getVal(['campaign', 'campaign name', 'campaign_name', 'campaign id', 'campaign_id', 'camp', 'campaignname', 'campaignid', 'queue', 'queue name']) || '').trim();
+        const processName = String(getVal(['process', 'dept', 'department', 'department name', 'departmentname', 'campaign', 'project', 'client']) || 'General').trim();
         
         const dateStr = getVal(['date & time', 'date time', 'datetime', 'date', 'timestamp', 'time', 'date-time', 'call date', 'calldate', 'transaction date', 'transactiondate']);
         const callTime = String(getVal(['call time', 'calltime', 'time of call', 'timeofcall']) || '').trim();
