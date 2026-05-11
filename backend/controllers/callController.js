@@ -247,9 +247,23 @@ const uploadCallData = async (req, res) => {
           // DD-MM-YYYY format handler
           const ddmm = s.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})(.*)$/);
           if (ddmm) {
-            const day = parseInt(ddmm[1]);
-            const month = parseInt(ddmm[2]) - 1;
+            let day = parseInt(ddmm[1]);
+            let month = parseInt(ddmm[2]) - 1;
             const year = parseInt(ddmm[3]);
+            
+            // Smart Date Swap: If the date is in the future but swapping D/M makes it recent
+            const now = new Date();
+            if (year === now.getFullYear()) {
+              const date1 = new Date(year, month, day);
+              const date2 = new Date(year, day - 1, month + 1);
+              // If date1 is more than 30 days in future AND date2 is in the past/recent
+              if (date1 > new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000) && date2 <= now) {
+                const temp = day;
+                day = month + 1;
+                month = temp - 1;
+              }
+            }
+
             const timePart = ddmm[4].trim();
             if (timePart) {
               date = new Date(year, month, day, ...timePart.split(/[:\s]/).filter(x => x).map(Number));
@@ -425,18 +439,8 @@ const uploadCallDataBatch = async (req, res) => {
         const campaign = String(normalizedRow['campaign'] || normalizedRow['campaign name'] || normalizedRow['campaign_name'] || normalizedRow['campaign id'] || normalizedRow['campaign_id'] || normalizedRow['camp'] || '').trim();
         const processName = String(normalizedRow['process'] || normalizedRow['dept'] || normalizedRow['department'] || normalizedRow['department name'] || normalizedRow['campaign'] || 'General').trim();
 
-        let dateStr = (
-          normalizedRow['date & time'] ||
-          normalizedRow['date time'] ||
-          normalizedRow['date'] ||
-          normalizedRow['timestamp'] ||
-          normalizedRow['time'] ||
-          normalizedRow['date-time'] ||
-          normalizedRow['call date'] ||
-          normalizedRow['transaction date'] ||
-          new Date().toISOString()
-        );
-        const callTime = String(normalizedRow['call time'] || '').trim();
+        const dateStr = getVal(['date & time', 'date time', 'datetime', 'date', 'timestamp', 'time', 'date-time', 'call date', 'calldate', 'transaction date', 'transactiondate']);
+        const callTime = String(getVal(['call time', 'calltime', 'time of call', 'timeofcall']) || '').trim();
 
         let date;
         if (dateStr instanceof Date) {
@@ -444,26 +448,47 @@ const uploadCallDataBatch = async (req, res) => {
         } else if (typeof dateStr === 'number') {
           date = new Date(Math.round((dateStr - 25569) * 86400 * 1000));
         } else if (dateStr) {
-          date = new Date(dateStr.toString().trim());
+          let s = dateStr.toString().trim();
+          // DD-MM-YYYY format handler
+          const ddmm = s.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})(.*)$/);
+          if (ddmm) {
+            let day = parseInt(ddmm[1]);
+            let month = parseInt(ddmm[2]) - 1;
+            const year = parseInt(ddmm[3]);
+            
+            // Smart Date Swap: If the date is in the future but swapping D/M makes it recent
+            const now = new Date();
+            if (year === now.getFullYear()) {
+              const date1 = new Date(year, month, day);
+              const date2 = new Date(year, day - 1, month + 1);
+              // If date1 is more than 30 days in future AND date2 is in the past/recent
+              if (date1 > new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000) && date2 <= now) {
+                const temp = day;
+                day = month + 1;
+                month = temp - 1;
+              }
+            }
+
+            const timePart = ddmm[4].trim();
+            if (timePart) {
+              date = new Date(year, month, day, ...timePart.split(/[:\s]/).filter(x => x).map(Number));
+            } else {
+              date = new Date(year, month, day);
+            }
+          } else {
+            date = new Date(s);
+          }
         } else {
           date = new Date();
         }
 
         const finalDate = (date && !isNaN(date.getTime())) ? date : new Date();
 
-        const phoneNumber = String(normalizedRow['phone number'] || normalizedRow['phone'] || normalizedRow['customer number'] || normalizedRow['mobile'] || '').trim();
-        const duration = String(
-          normalizedRow['duration'] ||
-          normalizedRow['talktime'] ||
-          normalizedRow['talk time'] ||
-          normalizedRow['call duration'] ||
-          normalizedRow['call time'] ||
-          normalizedRow['length'] ||
-          ''
-        ).trim();
-        const remarks = String(normalizedRow['remarks'] || normalizedRow['comment'] || normalizedRow['comment'] || '').trim();
-        const customerName = String(normalizedRow['customer name'] || normalizedRow['customer'] || '').trim();
-        const recordingPath = String(normalizedRow['recording path'] || normalizedRow['audio link'] || normalizedRow['audio url'] || normalizedRow['recording link'] || '').trim();
+        const phoneNumber = String(getVal(['phone number', 'phonenumber', 'phone', 'customer number', 'customernumber', 'mobile', 'contact']) || '').trim();
+        const duration = String(getVal(['duration', 'talktime', 'talk time', 'call duration', 'callduration', 'call time', 'calltime', 'length']) || '').trim();
+        const remarks = String(getVal(['remarks', 'comment', 'notes', 'feedback']) || '').trim();
+        const customerName = String(getVal(['customer name', 'customername', 'customer', 'client name', 'clientname']) || '').trim();
+        const recordingPath = String(getVal(['recording path', 'recordingpath', 'audio link', 'audiolink', 'audio url', 'audiourl', 'recording link', 'recordinglink']) || '').trim();
 
         const callDoc = {
           callId: uniqueCallId,
