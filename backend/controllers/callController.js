@@ -168,8 +168,12 @@ const uploadCallData = async (req, res) => {
       try {
         const normalizedRow = {};
         Object.keys(row).forEach(key => {
-          const normalizedKey = key.toLowerCase().trim().replace(/_/g, ' ').replace(/\s+/g, ' ');
-          normalizedRow[normalizedKey] = row[key];
+          const lowerKey = key.toLowerCase().trim();
+          const spaceNormalizedKey = lowerKey.replace(/_/g, ' ').replace(/\s+/g, ' ');
+          const noSpaceKey = lowerKey.replace(/_/g, '').replace(/\s+/g, '');
+          
+          normalizedRow[spaceNormalizedKey] = row[key];
+          if (!normalizedRow[noSpaceKey]) normalizedRow[noSpaceKey] = row[key];
         });
 
         // Robust Call ID extraction - prioritize user's CALL ID header
@@ -363,8 +367,12 @@ const uploadCallDataBatch = async (req, res) => {
       try {
         const normalizedRow = {};
         Object.keys(row).forEach(key => {
-          const normalizedKey = key.toLowerCase().trim().replace(/_/g, ' ').replace(/\s+/g, ' ');
-          normalizedRow[normalizedKey] = row[key];
+          const lowerKey = key.toLowerCase().trim();
+          const spaceNormalizedKey = lowerKey.replace(/_/g, ' ').replace(/\s+/g, ' ');
+          const noSpaceKey = lowerKey.replace(/_/g, '').replace(/\s+/g, '');
+          
+          normalizedRow[spaceNormalizedKey] = row[key];
+          if (!normalizedRow[noSpaceKey]) normalizedRow[noSpaceKey] = row[key];
         });
 
         const rawCallId =
