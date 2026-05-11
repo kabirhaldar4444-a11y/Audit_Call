@@ -249,6 +249,7 @@ const Calls = () => {
                       </div>
                     </th>
                     <th>Date & Time</th>
+                    <th>Call Time</th>
                     <th>Duration</th>
                     <th>First Dispose</th>
                     <th>Dispose</th>
@@ -278,6 +279,7 @@ const Calls = () => {
                       <td>{call.campaign || 'N/A'}</td>
                       <td>{call.process || 'General'}</td>
                       <td>{new Date(call.date).toLocaleString()}</td>
+                      <td>{call.callTime || 'N/A'}</td>
                       <td>{formatDuration(call.duration)}</td>
                       <td>{call.firstDispose || 'N/A'}</td>
                       <td>{call.dispose || 'N/A'}</td>

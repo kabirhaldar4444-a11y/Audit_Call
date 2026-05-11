@@ -38,6 +38,9 @@ const callSchema = new mongoose.Schema(
       required: true,
       index: true,
     },
+    callTime: {
+      type: String,
+    },
     phoneNumber: {
       type: String,
     },

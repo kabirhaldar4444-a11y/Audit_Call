@@ -224,6 +224,7 @@ const uploadCallData = async (req, res) => {
           normalizedRow['transaction date'] || 
           new Date().toISOString()
         ).toString().trim();
+        const callTime = String(normalizedRow['call time'] || '').trim();
         const date = new Date(dateStr);
         const finalDate = isNaN(date.getTime()) ? new Date() : date;
 
@@ -250,6 +251,7 @@ const uploadCallData = async (req, res) => {
           dispose,
           process: processName,
           date: finalDate,
+          callTime,
           phoneNumber,
           duration,
           remarks,
@@ -402,6 +404,7 @@ const uploadCallDataBatch = async (req, res) => {
           normalizedRow['transaction date'] || 
           new Date().toISOString()
         );
+        const callTime = String(normalizedRow['call time'] || '').trim();
         
         let date;
         // Handle Excel numeric dates if they come through
@@ -436,6 +439,7 @@ const uploadCallDataBatch = async (req, res) => {
           dispose,
           process: processName,
           date: finalDate,
+          callTime,
           phoneNumber,
           duration,
           remarks,

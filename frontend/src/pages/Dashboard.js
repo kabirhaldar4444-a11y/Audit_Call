@@ -527,6 +527,7 @@ const Dashboard = () => {
                 >
                   DATE & TIME {sortConfig.key === 'date' && (sortConfig.direction === 'asc' ? '🔼' : '🔽')}
                 </th>
+                <th>CALL TIME</th>
                 <th 
                   onClick={() => setSortConfig({ key: 'duration', direction: sortConfig.key === 'duration' && sortConfig.direction === 'asc' ? 'desc' : 'asc' })}
                   className="sortable"
@@ -571,6 +572,7 @@ const Dashboard = () => {
                   <td>{call?.campaign || 'N/A'}</td>
                   <td>{call?.process || 'General'}</td>
                   <td>{call?.date ? new Date(call.date).toLocaleString() : 'N/A'}</td>
+                  <td>{call?.callTime || 'N/A'}</td>
                   <td>{formatDuration(call?.duration)}</td>
                   <td>{call?.agentEmail || 'N/A'}</td>
                   <td>{call?.firstDispose || 'N/A'}</td>
