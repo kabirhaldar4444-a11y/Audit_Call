@@ -190,30 +190,25 @@ const uploadCallData = async (req, res) => {
           return '';
         };
 
-        // Robust Call ID extraction
+        // Robust ID extraction (Prioritizes UUIDs to prevent Agent ID collision)
         let rawCallId = getVal(['call id', 'callid', 'sl no', 'serial no', 'slno', 'id', 'uid', 'record id', 'recordid', 'lead id', 'leadid']);
-        
-        // If still no ID, look for a UUID-like string in any column
-        if (!rawCallId) {
-          const allValues = Object.values(row);
-          for (const val of allValues) {
-            const s = String(val).trim();
-            // Basic UUID/Unique ID check (longer than 15 chars, contains hyphens or mix of hex)
-            if (s.length > 15 && (s.includes('-') || /^[a-f0-9]{15,}$/i.test(s))) {
-              rawCallId = s;
-              break;
-            }
+
+        const allValsForUuid = Object.values(row);
+        let foundUuid = '';
+        for (const val of allValsForUuid) {
+          const s = String(val).trim();
+          if (s.length > 15 && (s.includes('-') || /^[a-f0-9]{15,}$/i.test(s))) {
+            foundUuid = s;
+            break;
           }
         }
 
-        // Final fallback: First column if it's not a date, otherwise generic ID
-        if (!rawCallId) {
-          const firstVal = String(Object.values(row)[0] || '').trim();
-          if (firstVal && firstVal.length > 3 && !firstVal.includes('-202') && !firstVal.includes('/202')) {
-            rawCallId = firstVal;
-          } else {
-            rawCallId = `GEN-${batchTimestamp}-${i}`;
-          }
+        if (foundUuid) rawCallId = foundUuid;
+
+        if (!rawCallId || (typeof rawCallId === 'string' && rawCallId.length < 10 && /^\d+$/.test(rawCallId))) {
+          const agentPart = String(getVal(['agent', 'agent name']) || 'unknown').toLowerCase().replace(/\s+/g, '');
+          const phonePart = String(getVal(['phone number', 'phone']) || '0000').replace(/\D/g, '');
+          rawCallId = `COMP-${agentPart}-${phonePart}-${i}`;
         }
 
         let callId = String(rawCallId || '').trim();
@@ -416,17 +411,7 @@ const uploadCallDataBatch = async (req, res) => {
         // Robust Call ID extraction
         let rawCallId = getVal(['call id', 'callid', 'sl no', 'serial no', 'slno', 'id', 'uid', 'record id', 'recordid', 'lead id', 'leadid']);
         
-        // If still no ID, look for a UUID-like string in any column
-        if (!rawCallId) {
-          const allValues = Object.values(row);
-          for (const val of allValues) {
-            const s = String(val).trim();
-            // Basic UUID/Unique ID check (longer than 15 chars, contains hyphens or mix of hex)
-            if (s.length > 15 && (s.includes('-') || /^[a-f0-9]{15,}$/i.test(s))) {
-              rawCallId = s;
-              break;
-            }
-          }
+        // HIGHER PRIORITY: Scan for UUIDs first to avoid Agent ID collisions`n        const allVals = Object.values(row);`n        let foundUuid = '';`n        for (const v of allVals) {`n          const s = String(v).trim();`n          if (s.length > 15 && (s.includes('-') || /^[a-f0-9]{15,}\$/i.test(s))) {`n            foundUuid = s;`n            break;`n          }`n        }`n        if (foundUuid) rawCallId = foundUuid;
         }
 
         // Final fallback: First column if it's not a date, otherwise generic ID
