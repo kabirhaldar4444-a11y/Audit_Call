@@ -238,6 +238,8 @@ const Calls = () => {
                     </th>
                     <th>Date & Time</th>
                     <th>Duration</th>
+                    <th>First Dispose</th>
+                    <th>Dispose</th>
                     <th>
                       Status
                       <div className="header-filter-container">
@@ -264,6 +266,8 @@ const Calls = () => {
                       <td>{call.process || 'General'}</td>
                       <td>{new Date(call.date).toLocaleString()}</td>
                       <td>{formatDuration(call.duration)}</td>
+                      <td>{call.firstDispose || 'N/A'}</td>
+                      <td>{call.dispose || 'N/A'}</td>
                       <td>
                         <span className={`status-pill ${call.status}`}>
                           • {call.status.charAt(0).toUpperCase() + call.status.slice(1)}

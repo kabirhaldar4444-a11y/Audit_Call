@@ -19,6 +19,9 @@ const callSchema = new mongoose.Schema(
     firstDispose: {
       type: String,
     },
+    dispose: {
+      type: String,
+    },
     customerName: {
       type: String,
     },
