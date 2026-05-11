@@ -35,6 +35,20 @@ const Dashboard = () => {
   const [dbError, setDbError] = useState(null);
   const [apiVersion, setApiVersion] = useState(null);
 
+  const formatDuration = (durationStr) => {
+    if (!durationStr) return '00:00';
+    const numValue = Number(durationStr);
+    if (!isNaN(numValue) && durationStr.toString().trim() !== '') {
+      if (numValue > 0 && numValue < 1) {
+        const totalSeconds = Math.round(numValue * 24 * 60 * 60);
+        const minutes = Math.floor(totalSeconds / 60);
+        const seconds = totalSeconds % 60;
+        return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+      }
+    }
+    return durationStr;
+  };
+
   const handleStatusUpdate = async (id, newStatus) => {
     try {
       await api.patch(`/calls/${id}/status`, { status: newStatus });
@@ -543,7 +557,7 @@ const Dashboard = () => {
                   <td>{call?.agentName || 'N/A'}</td>
                   <td>{call?.process || 'General'}</td>
                   <td>{call?.date ? new Date(call.date).toLocaleString() : 'N/A'}</td>
-                  <td>{call?.duration || '00:00'}</td>
+                  <td>{formatDuration(call?.duration)}</td>
                   <td>{call?.agentEmail || 'N/A'}</td>
                   <td>{call?.firstDispose || 'N/A'}</td>
                   <td>

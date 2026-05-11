@@ -24,6 +24,20 @@ const Calls = () => {
   const [selectedAudio, setSelectedAudio] = useState(null);
   const [databaseMode, setDatabaseMode] = useState('online');
 
+  const formatDuration = (durationStr) => {
+    if (!durationStr) return '00:00';
+    const numValue = Number(durationStr);
+    if (!isNaN(numValue) && durationStr.toString().trim() !== '') {
+      if (numValue > 0 && numValue < 1) {
+        const totalSeconds = Math.round(numValue * 24 * 60 * 60);
+        const minutes = Math.floor(totalSeconds / 60);
+        const seconds = totalSeconds % 60;
+        return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+      }
+    }
+    return durationStr;
+  };
+
   // Debounce filter updates
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -249,7 +263,7 @@ const Calls = () => {
                       <td>{call.agentName}</td>
                       <td>{call.process || 'General'}</td>
                       <td>{new Date(call.date).toLocaleString()}</td>
-                      <td>{call.duration || '00:00'}</td>
+                      <td>{formatDuration(call.duration)}</td>
                       <td>
                         <span className={`status-pill ${call.status}`}>
                           • {call.status.charAt(0).toUpperCase() + call.status.slice(1)}
