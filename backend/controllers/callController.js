@@ -191,27 +191,27 @@ const uploadCallData = async (req, res) => {
         // Robust Call ID extraction
         let rawCallId = getVal(['call id', 'callid', 'sl no', 'serial no', 'slno', 'id', 'uid', 'record id', 'recordid', 'lead id', 'leadid']);
         
-        // If still no ID, look for a UUID-like string in any column
-        if (!rawCallId) {
-          const allValues = Object.values(row);
-          for (const val of allValues) {
-            const s = String(val).trim();
-            // Basic UUID/Unique ID check (longer than 15 chars, contains hyphens or mix of hex)
-            if (s.length > 15 && (s.includes('-') || /^[a-f0-9]{15,}$/i.test(s))) {
-              rawCallId = s;
-              break;
-            }
+        // HIGHER PRIORITY: Look for a UUID-like string in any column FIRST
+        // This prevents picking up numeric Agent IDs (like 1173938) as Call IDs
+        const allValues = Object.values(row);
+        let foundUuid = '';
+        for (const val of allValues) {
+          const s = String(val).trim();
+          if (s.length > 15 && (s.includes('-') || /^[a-f0-9]{15,}$/i.test(s))) {
+            foundUuid = s;
+            break;
           }
         }
+        
+        if (foundUuid) {
+          rawCallId = foundUuid;
+        }
 
-        // Final fallback: First column if it's not a date, otherwise generic ID
-        if (!rawCallId) {
-          const firstVal = String(Object.values(row)[0] || '').trim();
-          if (firstVal && firstVal.length > 3 && !firstVal.includes('-202') && !firstVal.includes('/202')) {
-            rawCallId = firstVal;
-          } else {
-            rawCallId = `GEN-${batchTimestamp}-${i}`;
-          }
+        // Final fallback: If ID looks like a short number (Agent ID), make it composite
+        if (!rawCallId || (typeof rawCallId === 'string' && rawCallId.length < 10 && /^\d+$/.test(rawCallId))) {
+          const agentPart = String(getVal(['agent', 'agent name']) || 'unknown').toLowerCase().replace(/\s+/g, '');
+          const phonePart = String(getVal(['phone number', 'phone']) || '0000').replace(/\D/g, '');
+          rawCallId = `COMP-${agentPart}-${phonePart}-${i}`;
         }
 
         let callId = String(rawCallId || '').trim();
@@ -397,24 +397,33 @@ const uploadCallDataBatch = async (req, res) => {
           if (!normalizedRow[noSpaceKey]) normalizedRow[noSpaceKey] = row[key];
         });
 
-        const rawCallId =
-          normalizedRow['call id'] ||
-          normalizedRow['callid'] ||
-          normalizedRow['sl no'] ||
-          normalizedRow['serial no'] ||
-          normalizedRow['slno'] ||
-          normalizedRow['id'] ||
-          normalizedRow['uid'] ||
-          normalizedRow['record id'] ||
-          normalizedRow['lead id'] ||
-          Object.values(row)[0];
-
-        let callId = String(rawCallId || '').trim();
-
-        if (!callId) {
-          callId = `GEN-${batchTimestamp}-${i}`;
+        // Robust Call ID extraction
+        let rawCallId = getVal(['call id', 'callid', 'sl no', 'serial no', 'slno', 'id', 'uid', 'record id', 'recordid', 'lead id', 'leadid']);
+        
+        // HIGHER PRIORITY: Look for a UUID-like string in any column FIRST
+        // This prevents picking up numeric Agent IDs (like 1173938) as Call IDs
+        const allValues = Object.values(row);
+        let foundUuid = '';
+        for (const val of allValues) {
+          const s = String(val).trim();
+          if (s.length > 15 && (s.includes('-') || /^[a-f0-9]{15,}$/i.test(s))) {
+            foundUuid = s;
+            break;
+          }
+        }
+        
+        if (foundUuid) {
+          rawCallId = foundUuid;
         }
 
+        // Final fallback: If ID looks like a short number (Agent ID), make it composite
+        if (!rawCallId || (typeof rawCallId === 'string' && rawCallId.length < 10 && /^\d+$/.test(rawCallId))) {
+          const agentPart = String(getVal(['agent', 'agent name']) || 'unknown').toLowerCase().replace(/\s+/g, '');
+          const phonePart = String(getVal(['phone number', 'phone']) || '0000').replace(/\D/g, '');
+          rawCallId = `COMP-${agentPart}-${phonePart}-${i}`;
+        }
+        
+        let callId = String(rawCallId || '').trim();
         let uniqueCallId = callId;
         let counter = 1;
         while (seenIdsInBatch.has(uniqueCallId)) {
