@@ -249,9 +249,23 @@ const uploadCallData = async (req, res) => {
           // DD-MM-YYYY format handler
           const ddmm = s.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})(.*)$/);
           if (ddmm) {
-            const day = parseInt(ddmm[1]);
-            const month = parseInt(ddmm[2]) - 1;
+            let day = parseInt(ddmm[1]);
+            let month = parseInt(ddmm[2]) - 1;
             const year = parseInt(ddmm[3]);
+            
+            // Smart Date Swap: If the date is in the future but swapping D/M makes it recent
+            const now = new Date();
+            if (year === now.getFullYear()) {
+              const date1 = new Date(year, month, day);
+              const date2 = new Date(year, day - 1, month + 1);
+              // If date1 is more than 30 days in future AND date2 is in the past/recent
+              if (date1 > new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000) && date2 <= now) {
+                const temp = day;
+                day = month + 1;
+                month = temp - 1;
+              }
+            }
+
             const timePart = ddmm[4].trim();
             if (timePart) {
               date = new Date(year, month, day, ...timePart.split(/[:\s]/).filter(x => x).map(Number));
@@ -455,9 +469,23 @@ const uploadCallDataBatch = async (req, res) => {
           // DD-MM-YYYY format handler
           const ddmm = s.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})(.*)$/);
           if (ddmm) {
-            const day = parseInt(ddmm[1]);
-            const month = parseInt(ddmm[2]) - 1;
+            let day = parseInt(ddmm[1]);
+            let month = parseInt(ddmm[2]) - 1;
             const year = parseInt(ddmm[3]);
+            
+            // Smart Date Swap: If the date is in the future but swapping D/M makes it recent
+            const now = new Date();
+            if (year === now.getFullYear()) {
+              const date1 = new Date(year, month, day);
+              const date2 = new Date(year, day - 1, month + 1);
+              // If date1 is more than 30 days in future AND date2 is in the past/recent
+              if (date1 > new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000) && date2 <= now) {
+                const temp = day;
+                day = month + 1;
+                month = temp - 1;
+              }
+            }
+
             const timePart = ddmm[4].trim();
             if (timePart) {
               date = new Date(year, month, day, ...timePart.split(/[:\s]/).filter(x => x).map(Number));
