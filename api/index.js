@@ -87,7 +87,7 @@ app.get('/health', (req, res) => {
   
   res.status(200).json({ 
     status: 'ok', 
-    version: 'v2.5 (Nuclear)',
+    version: 'v3.0 (Delete-All Feature)',
     database: dbStatus, 
     mode: process.env.DB_MODE || 'online',
     uriPresent: uriPresent || true, // True because hardcoded fallback is active
@@ -106,7 +106,7 @@ app.get('/api/health', (req, res) => {
   
   res.status(200).json({ 
     status: 'ok', 
-    version: 'v2.5 (Nuclear)',
+    version: 'v3.0 (Delete-All Feature)',
     database: dbStatus, 
     mode: process.env.DB_MODE || 'online',
     uriPresent: uriPresent || true, // True because hardcoded fallback is active
