@@ -1,4 +1,5 @@
 const Call = require('../models/Call');
+const mongoose = require('mongoose');
 const fs = require('fs');
 const path = require('path');
 const xlsx = require('xlsx');
@@ -94,7 +95,7 @@ const getAllCalls = async (req, res) => {
     const sortOrder = req.query.sortOrder === 'asc' ? 1 : -1;
     const sort = { [sortField]: sortOrder };
 
-    const isOffline = process.env.DB_MODE === 'offline' || !Call.db || Call.db.readyState !== 1;
+    const isOffline = process.env.DB_MODE === 'offline' || mongoose.connection.readyState !== 1;
     let total, calls;
 
     if (!isOffline) {
@@ -217,8 +218,8 @@ const uploadCallData = async (req, res) => {
 
     const seenIdsInBatch = new Set();
     const callsToSave = [];
-    const isOffline = process.env.DB_MODE === 'offline' || !Call.db || Call.db.readyState !== 1;
-    console.log(`📡 Upload request received. Database state: ${Call.db?.readyState || 'Unknown'}, Mode: ${process.env.DB_MODE || 'online'}, Fallback: ${isOffline ? 'OFFLINE' : 'ONLINE'}`);
+    const isOffline = process.env.DB_MODE === 'offline' || mongoose.connection.readyState !== 1;
+    console.log(`📡 Upload request received. Database state: ${mongoose.connection.readyState}, Mode: ${process.env.DB_MODE || 'online'}, Fallback: ${isOffline ? 'OFFLINE' : 'ONLINE'}`);
     const batchTimestamp = Date.now();
 
     for (let i = 0; i < data.length; i++) {
@@ -381,7 +382,7 @@ const uploadCallDataBatch = async (req, res) => {
 
     const seenIdsInBatch = new Set();
     const callsToSave = [];
-    const isOffline = process.env.DB_MODE === 'offline' || !Call.db || Call.db.readyState !== 1;
+    const isOffline = process.env.DB_MODE === 'offline' || mongoose.connection.readyState !== 1;
     const batchTimestamp = Date.now();
 
     for (let i = 0; i < data.length; i++) {
@@ -568,7 +569,7 @@ const uploadAudio = async (req, res) => {
 
 const getDashboardStats = async (req, res) => {
   try {
-    const isOffline = process.env.DB_MODE === 'offline' || !Call.db || Call.db.readyState !== 1;
+    const isOffline = process.env.DB_MODE === 'offline' || mongoose.connection.readyState !== 1;
     let stats;
 
     if (!isOffline) {
