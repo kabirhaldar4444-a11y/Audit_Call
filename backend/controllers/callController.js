@@ -726,6 +726,7 @@ module.exports = {
   uploadCallDataBatch,
   uploadAudio,
   deleteCalls,
+  deleteAllCalls,
   updateCallStatus,
   getCallsByDateRange
 };

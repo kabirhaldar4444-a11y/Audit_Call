@@ -438,7 +438,16 @@ const getCallsByDateRange = async (req, res) => {
   }
 };
 
+const deleteAllCalls = async (req, res) => {
+  try {
+    await Call.deleteMany({});
+    res.status(200).json({ message: 'All records deleted successfully' });
+  } catch (error) {
+    res.status(500).json({ message: 'Error deleting all records', error: error.message });
+  }
+};
+
 module.exports = { 
   getAllCalls, getCallById, createCall, getDashboardStats, uploadCallData, 
-  uploadCallDataBatch, uploadAudio, deleteCalls, updateCallStatus, getCallsByDateRange 
+  uploadCallDataBatch, uploadAudio, deleteCalls, deleteAllCalls, updateCallStatus, getCallsByDateRange 
 };

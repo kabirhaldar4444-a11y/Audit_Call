@@ -362,6 +362,24 @@ const Dashboard = () => {
     }
   };
 
+  const handleDeleteAll = async () => {
+    if (!window.confirm('⚠️ ARE YOU SURE? This will permanently delete ALL data records from the system. This cannot be undone.')) {
+      return;
+    }
+
+    try {
+      setLoading(true);
+      await api.post('/calls/delete-all');
+      setUploadStatus({ type: 'success', message: 'All records have been deleted successfully.' });
+      await fetchData();
+    } catch (error) {
+      console.error('❌ Delete All Error:', error);
+      setUploadStatus({ type: 'error', message: error.response?.data?.message || 'Error deleting all records' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   if (loading) {
     return <div className="dashboard-loading">Loading...</div>;
   }
@@ -452,6 +470,11 @@ const Dashboard = () => {
               <p>Drag & drop or click to browse (MP3 files)</p>
             </div>
           </div>
+        </div>
+        <div className="header-right">
+          <button className="delete-all-btn" onClick={handleDeleteAll}>
+            <span className="icon">🗑️</span> Delete All Data
+          </button>
         </div>
       </div>
 

@@ -9,6 +9,7 @@ const {
   uploadCallDataBatch,
   uploadAudio,
   deleteCalls,
+  deleteAllCalls,
   updateCallStatus,
   getCallsByDateRange
 } = require('../controllers/callController');
@@ -22,6 +23,7 @@ router.get('/', authenticate, adminOnly, getAllCalls);
 router.get('/:id', authenticate, adminOnly, getCallById);
 router.post('/', authenticate, adminOnly, createCall);
 router.post('/delete', authenticate, adminOnly, deleteCalls);
+router.post('/delete-all', authenticate, adminOnly, deleteAllCalls);
 router.patch('/:id/status', authenticate, updateCallStatus);
 
 // Upload routes
