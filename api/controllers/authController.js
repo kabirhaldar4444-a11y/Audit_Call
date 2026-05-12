@@ -1,5 +1,6 @@
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
+const crypto = require('crypto');
 const supabase = require('../config/supabase');
 
 const register = async (req, res) => {
@@ -94,7 +95,13 @@ const login = async (req, res) => {
           const hashedPassword = await bcrypt.hash('admin123', salt);
           const { data: newUser, error: createError } = await supabase
             .from('users')
-            .insert([{ username: 'admin', email: 'admin@callaudit.com', password: hashedPassword, role: 'admin' }])
+            .insert([{ 
+              id: crypto.randomUUID(), // Manually generate ID
+              username: 'admin', 
+              email: 'admin@callaudit.com', 
+              password: hashedPassword, 
+              role: 'admin' 
+            }])
             .select()
             .single();
           if (createError) throw createError;

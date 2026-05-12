@@ -115,7 +115,16 @@ const Login = ({ onLoginSuccess }) => {
             />
           </div>
 
-          {error && <div className="error-message">{error}</div>}
+          {error && (
+            <div className="error-message">
+              <div style={{ fontWeight: 'bold' }}>{error}</div>
+              {error.includes('Table') || error.includes('not found') || error.includes('failed') ? (
+                <div style={{ fontSize: '11px', marginTop: '5px', color: '#fff', backgroundColor: 'rgba(0,0,0,0.2)', padding: '5px', borderRadius: '4px' }}>
+                  💡 <b>Tip:</b> This usually means your Supabase tables are missing. Please run the SQL schema script in your Supabase dashboard.
+                </div>
+              ) : null}
+            </div>
+          )}
 
           <button 
             type="submit" 
