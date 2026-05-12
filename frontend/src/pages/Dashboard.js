@@ -53,7 +53,7 @@ const Dashboard = () => {
   const handleStatusUpdate = async (id, newStatus) => {
     try {
       await api.patch(`/calls/${id}/status`, { status: newStatus });
-      setCalls(prev => prev.map(call => call._id === id ? { ...call, status: newStatus } : call));
+      setCalls(prev => prev.map(call => call.id === id ? { ...call, status: newStatus } : call));
       fetchData();
     } catch (error) {
       console.error('Error updating status:', error);
@@ -155,7 +155,7 @@ const Dashboard = () => {
 
   const handleSelectAll = (e) => {
     if (e.target.checked) {
-      setSelectedCalls(displayCalls.map(call => call._id));
+      setSelectedCalls(displayCalls.map(call => call.id));
     } else {
       setSelectedCalls([]);
     }
@@ -584,12 +584,12 @@ const Dashboard = () => {
 
             <tbody>
               {(displayCalls ?? []).map((call, index) => (
-                <tr key={call?._id || index} className={selectedCalls.includes(call?._id) ? 'selected-row' : ''}>
+                <tr key={call?.id || index} className={selectedCalls.includes(call?.id) ? 'selected-row' : ''}>
                   <td className="checkbox-col">
                     <input 
                       type="checkbox" 
-                      onChange={() => handleSelectOne(call?._id)} 
-                      checked={selectedCalls.includes(call?._id)}
+                      onChange={() => handleSelectOne(call?.id)} 
+                      checked={selectedCalls.includes(call?.id)}
                     />
                   </td>
                   <td className="sl-no-col">{(page - 1) * (pagination?.limit ?? 20) + index + 1}</td>
@@ -622,7 +622,7 @@ const Dashboard = () => {
                     )}
                     <button 
                       className={`status-btn ${(call?.status || 'pending') === 'pending' ? 'mark-audited' : 'mark-pending'}`}
-                      onClick={() => handleStatusUpdate(call?._id, (call?.status || 'pending') === 'pending' ? 'audited' : 'pending')}
+                      onClick={() => handleStatusUpdate(call?.id, (call?.status || 'pending') === 'pending' ? 'audited' : 'pending')}
                     >
                       {(call?.status || 'pending') === 'pending' ? '✅ Audit' : '↩️ Reset'}
                     </button>

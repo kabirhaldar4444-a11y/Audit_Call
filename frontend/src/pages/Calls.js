@@ -272,7 +272,7 @@ const Calls = () => {
                 </thead>
                 <tbody>
                   {calls.map((call, index) => (
-                    <tr key={call._id}>
+                    <tr key={call.id}>
                       <td>{(page - 1) * pagination.limit + index + 1}</td>
                       <td className="bold">{call.callId}</td>
                       <td>{call.agentName}</td>

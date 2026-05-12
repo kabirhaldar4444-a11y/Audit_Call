@@ -1,19 +1,11 @@
-const Audit = require('../models/Audit');
-const Call = require('../models/Call');
+const supabase = require('../config/supabase');
 
 const submitAudit = async (req, res) => {
   try {
     const { callId, scores, remarks } = req.body;
 
-    // Validate input
     if (!callId || !scores) {
       return res.status(400).json({ message: 'Please provide call ID and scores' });
-    }
-
-    // Check if call exists
-    const call = await Call.findById(callId);
-    if (!call) {
-      return res.status(404).json({ message: 'Call not found' });
     }
 
     // Calculate overall score
@@ -22,26 +14,40 @@ const submitAudit = async (req, res) => {
       ? (scoreValues.reduce((a, b) => a + b, 0) / scoreValues.length).toFixed(2)
       : 0;
 
-    // Create audit record
-    const audit = new Audit({
-      callId,
-      auditorId: req.userId,
-      scores,
-      remarks,
-      overallScore,
-      status: 'completed',
-    });
+    // Create audit record in Supabase
+    const { data: audit, error: auditError } = await supabase
+      .from('audits')
+      .insert([{
+        call_record_id: callId,
+        auditor_id: req.userId,
+        greeting_quality: scores.greetingQuality,
+        communication_clarity: scores.communicationClarity,
+        compliance_adherence: scores.complianceAdherence,
+        resolution_quality: scores.resolutionQuality,
+        customer_satisfaction: scores.customerSatisfaction,
+        remarks,
+        overall_score: parseFloat(overallScore),
+        status: 'completed'
+      }])
+      .select()
+      .single();
 
-    await audit.save();
+    if (auditError) throw auditError;
 
-    // Update call status
-    await Call.findByIdAndUpdate(callId, { status: 'audited' });
+    // Update call status to 'audited'
+    const { error: callError } = await supabase
+      .from('calls')
+      .update({ status: 'audited' })
+      .eq('id', callId);
+
+    if (callError) throw callError;
 
     res.status(201).json({
       message: 'Audit submitted successfully',
       data: audit,
     });
   } catch (error) {
+    console.error('❌ Audit submission error:', error.message);
     res.status(500).json({ message: 'Error submitting audit', error: error.message });
   }
 };
@@ -49,10 +55,17 @@ const submitAudit = async (req, res) => {
 const getAuditByCallId = async (req, res) => {
   try {
     const { callId } = req.params;
-    const audit = await Audit.findOne({ callId })
-      .populate('callId')
-      .populate('auditorId', 'username email');
+    const { data: audit, error } = await supabase
+      .from('audits')
+      .select(`
+        *,
+        call_record:calls(*),
+        auditor:users(username, email)
+      `)
+      .eq('call_record_id', callId)
+      .maybeSingle();
 
+    if (error) throw error;
     if (!audit) {
       return res.status(404).json({ message: 'Audit not found' });
     }
@@ -68,11 +81,16 @@ const getAuditByCallId = async (req, res) => {
 
 const getAllAudits = async (req, res) => {
   try {
-    const audits = await Audit.find()
-      .populate('callId')
-      .populate('auditorId', 'username email')
-      .sort({ createdAt: -1 })
-      .lean();
+    const { data: audits, error } = await supabase
+      .from('audits')
+      .select(`
+        *,
+        call_record:calls(*),
+        auditor:users(username, email)
+      `)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
 
     res.status(200).json({
       message: 'Audits retrieved successfully',

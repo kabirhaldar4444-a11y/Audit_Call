@@ -1,5 +1,4 @@
-const Call = require('../models/Call');
-const mongoose = require('mongoose');
+const supabase = require('../config/supabase');
 const fs = require('fs');
 const path = require('path');
 const xlsx = require('xlsx');
@@ -34,54 +33,31 @@ const getAllCalls = async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 20;
-    const skip = (page - 1) * limit;
+    const from = (page - 1) * limit;
+    const to = from + limit - 1;
 
-    const filter = { isActive: true };
-    if (req.query.callId) filter.callId = { $regex: req.query.callId, $options: 'i' };
-    if (req.query.agentName) filter.agentName = { $regex: req.query.agentName, $options: 'i' };
-    if (req.query.campaign) filter.campaign = { $regex: req.query.campaign, $options: 'i' };
-    if (req.query.process) filter.process = { $regex: req.query.process, $options: 'i' };
-    if (req.query.status) filter.status = req.query.status;
+    let query = supabase
+      .from('calls')
+      .select('*', { count: 'exact' });
+
+    // Apply filters
+    if (req.query.callId) query = query.ilike('call_id', `%${req.query.callId}%`);
+    if (req.query.agentName) query = query.ilike('agent_name', `%${req.query.agentName}%`);
+    if (req.query.campaign) query = query.ilike('campaign', `%${req.query.campaign}%`);
+    if (req.query.process) query = query.ilike('process', `%${req.query.process}%`);
+    if (req.query.status) query = query.eq('status', req.query.status);
     
-    if (req.query.dateFrom || req.query.dateTo) {
-      filter.date = {};
-      if (req.query.dateFrom) filter.date.$gte = new Date(req.query.dateFrom);
-      if (req.query.dateTo) {
-        const toDate = new Date(req.query.dateTo);
-        toDate.setHours(23, 59, 59, 999);
-        filter.date.$lte = toDate;
-      }
-    }
+    if (req.query.dateFrom) query = query.gte('call_date', req.query.dateFrom);
+    if (req.query.dateTo) query = query.lte('call_date', req.query.dateTo);
 
-    const sortField = req.query.sortField || 'date';
-    const sortOrder = req.query.sortOrder === 'asc' ? 1 : -1;
-    const sort = { [sortField]: sortOrder };
+    const sortField = req.query.sortField === 'date' ? 'call_date' : (req.query.sortField || 'call_date');
+    const ascending = req.query.sortOrder === 'asc';
+    
+    query = query.order(sortField, { ascending }).range(from, to);
 
-    const isOffline = process.env.DB_MODE === 'offline' || mongoose.connection.readyState !== 1;
-    let total, calls;
+    const { data: calls, count: total, error } = await query;
 
-    if (!isOffline) {
-      try {
-        [total, calls] = await Promise.all([
-          Call.countDocuments(filter),
-          Call.find(filter)
-            .populate('uploadedBy', 'username email')
-            .sort(sort)
-            .skip(skip)
-            .limit(limit)
-            .lean()
-        ]);
-      } catch (dbError) {
-        console.warn('⚠️  MongoDB Fetch failed, falling back to local:', dbError.message);
-        const localData = getCallsFromLocalFile(req.query);
-        total = localData.length;
-        calls = localData.slice(skip, skip + limit);
-      }
-    } else {
-      const localData = getCallsFromLocalFile(req.query);
-      total = localData.length;
-      calls = localData.slice(skip, skip + limit);
-    }
+    if (error) throw error;
 
     res.status(200).json({
       message: 'Calls retrieved successfully',
@@ -92,7 +68,7 @@ const getAllCalls = async (req, res) => {
         limit,
         totalPages: Math.ceil(total / limit)
       },
-      databaseMode: isOffline ? 'offline' : 'online'
+      databaseMode: 'supabase'
     });
   } catch (error) {
     console.error('Error in getAllCalls:', error);
@@ -103,8 +79,15 @@ const getAllCalls = async (req, res) => {
 const getCallById = async (req, res) => {
   try {
     const { id } = req.params;
-    const call = await Call.findById(id).populate('uploadedBy', 'username email');
+    const { data: call, error } = await supabase
+      .from('calls')
+      .select('*')
+      .eq('id', id)
+      .single();
+
+    if (error) throw error;
     if (!call) return res.status(404).json({ message: 'Call not found' });
+    
     res.status(200).json({ message: 'Call retrieved successfully', data: call });
   } catch (error) {
     res.status(500).json({ message: 'Error retrieving call', error: error.message });
@@ -116,24 +99,28 @@ const createCall = async (req, res) => {
     const { callId, agentName, agentEmail, campaign, firstDispose, dispose, process, date, callTime, phoneNumber, duration, remarks, customerName } = req.body;
     if (!callId || !agentName || !date) return res.status(400).json({ message: 'Please provide all required fields' });
 
-    const newCall = new Call({
-      callId,
-      agentName,
-      agentEmail,
-      campaign,
-      firstDispose,
-      dispose,
-      process: process || 'General',
-      date: new Date(date),
-      callTime,
-      phoneNumber,
-      duration,
-      remarks,
-      customerName,
-      uploadedBy: req.userId,
-    });
+    const { data: newCall, error } = await supabase
+      .from('calls')
+      .insert([{
+        call_id: callId,
+        agent_name: agentName,
+        agent_email: agentEmail,
+        campaign,
+        first_dispose: firstDispose,
+        dispose,
+        process: process || 'General',
+        call_date: new Date(date),
+        call_time: callTime,
+        phone_number: phoneNumber,
+        duration,
+        remarks,
+        customer_name: customerName,
+        uploaded_by: String(req.userId || 'system'),
+      }])
+      .select()
+      .single();
 
-    await newCall.save();
+    if (error) throw error;
     res.status(201).json({ message: 'Call created successfully', data: newCall });
   } catch (error) {
     res.status(500).json({ message: 'Error creating call', error: error.message });
@@ -149,11 +136,9 @@ const uploadCallData = async (req, res) => {
     const sheet = workbook.Sheets[sheetName];
     const data = xlsx.utils.sheet_to_json(sheet);
 
-    const results = { total: data.length, success: 0, failed: 0, errors: [], databaseMode: process.env.DB_MODE || 'online' };
+    const results = { total: data.length, success: 0, failed: 0, errors: [], databaseMode: 'supabase' };
     const seenIdsInBatch = new Set();
     const callsToSave = [];
-    const isOffline = process.env.DB_MODE === 'offline' || mongoose.connection.readyState !== 1;
-    console.log(`📡 [Root API] Upload request received. Rows: ${data.length}, DB: ${isOffline ? 'OFFLINE' : 'ONLINE'}`);
 
     for (let i = 0; i < data.length; i++) {
       const row = data[i];
@@ -209,25 +194,23 @@ const uploadCallData = async (req, res) => {
         const finalDate = (date && !isNaN(date.getTime())) ? date : new Date();
 
         callsToSave.push({
-          callId: uniqueCallId,
-          agentName: String(getVal(['agent', 'agent name']) || 'Unknown Agent').trim(),
-          agentEmail: String(getVal(['agent email', 'email']) || '').toLowerCase().trim(),
+          call_id: uniqueCallId,
+          agent_name: String(getVal(['agent', 'agent name']) || 'Unknown Agent').trim(),
+          agent_email: String(getVal(['agent email', 'email']) || '').toLowerCase().trim(),
           campaign: String(getVal(['campaign', 'campaign name']) || '').trim(),
-          firstDispose: String(getVal(['first dispose', 'sub disposition']) || '').trim(),
+          first_dispose: String(getVal(['first dispose', 'sub disposition']) || '').trim(),
           dispose: String(getVal(['dispose', 'disposition', 'status']) || '').trim(),
           process: String(getVal(['process', 'department']) || 'General').trim(),
-          date: finalDate,
-          callTime: String(getVal(['call time', 'time']) || '').trim(),
-          phoneNumber: String(getVal(['phone number', 'phone']) || '').trim(),
+          call_date: finalDate,
+          call_time: String(getVal(['call time', 'time']) || '').trim(),
+          phone_number: String(getVal(['phone number', 'phone']) || '').trim(),
           duration: String(getVal(['duration', 'talktime']) || '').trim(),
           remarks: String(getVal(['remarks', 'comment']) || '').trim(),
-          customerName: String(getVal(['customer name', 'customer']) || '').trim(),
-          uploadedBy: req.userId,
-          isActive: true,
+          customer_name: String(getVal(['customer name', 'customer']) || '').trim(),
+          uploaded_by: String(req.userId || 'system'),
+          is_active: true,
           status: 'pending',
-          audioUrl: String(getVal(['recording path', 'audio link']) || '').trim(),
-          createdAt: new Date(),
-          updatedAt: new Date()
+          audio_url: String(getVal(['recording path', 'audio link']) || '').trim()
         });
       } catch (err) {
         results.failed++;
@@ -236,17 +219,14 @@ const uploadCallData = async (req, res) => {
     }
 
     if (callsToSave.length > 0) {
-      if (!isOffline) {
-        const bulkOps = callsToSave.map(call => ({ insertOne: { document: call } }));
-        const bulkResult = await Call.bulkWrite(bulkOps, { ordered: false });
-        results.success = bulkResult.insertedCount || bulkResult.nInserted || callsToSave.length;
-      } else {
-        results.failed += callsToSave.length;
-        results.errors.push('System is in OFFLINE mode.');
-      }
+      const { data: inserted, error } = await supabase
+        .from('calls')
+        .insert(callsToSave);
+      
+      if (error) throw error;
+      results.success = callsToSave.length;
     }
 
-    if (fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
     res.status(200).json({ message: 'Upload complete', data: results });
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -258,10 +238,9 @@ const uploadCallDataBatch = async (req, res) => {
     const { data, startIndex = 0 } = req.body;
     if (!data || !Array.isArray(data)) return res.status(400).json({ message: 'Invalid data' });
 
-    const results = { total: data.length, success: 0, failed: 0, errors: [], databaseMode: process.env.DB_MODE || 'online' };
+    const results = { total: data.length, success: 0, failed: 0, errors: [], databaseMode: 'supabase' };
     const seenIdsInBatch = new Set();
     const callsToSave = [];
-    const isOffline = process.env.DB_MODE === 'offline' || mongoose.connection.readyState !== 1;
 
     for (let i = 0; i < data.length; i++) {
       const row = data[i];
@@ -311,25 +290,23 @@ const uploadCallDataBatch = async (req, res) => {
         const finalDate = (date && !isNaN(date.getTime())) ? date : new Date();
 
         callsToSave.push({
-          callId: uniqueCallId,
-          agentName: String(getVal(['agent', 'agent name']) || 'Unknown Agent').trim(),
-          agentEmail: String(getVal(['agent email', 'email']) || '').toLowerCase().trim(),
+          call_id: uniqueCallId,
+          agent_name: String(getVal(['agent', 'agent name']) || 'Unknown Agent').trim(),
+          agent_email: String(getVal(['agent email', 'email']) || '').toLowerCase().trim(),
           campaign: String(getVal(['campaign', 'campaign name']) || '').trim(),
-          firstDispose: String(getVal(['first dispose', 'sub disposition']) || '').trim(),
+          first_dispose: String(getVal(['first dispose', 'sub disposition']) || '').trim(),
           dispose: String(getVal(['dispose', 'disposition', 'status']) || '').trim(),
           process: String(getVal(['process', 'department']) || 'General').trim(),
-          date: finalDate,
-          callTime: String(getVal(['call time', 'time']) || '').trim(),
-          phoneNumber: String(getVal(['phone number', 'phone']) || '').trim(),
+          call_date: finalDate,
+          call_time: String(getVal(['call time', 'time']) || '').trim(),
+          phone_number: String(getVal(['phone number', 'phone']) || '').trim(),
           duration: String(getVal(['duration', 'talktime']) || '').trim(),
           remarks: String(getVal(['remarks', 'comment']) || '').trim(),
-          customerName: String(getVal(['customer name', 'customer']) || '').trim(),
-          uploadedBy: req.userId,
-          isActive: true,
+          customer_name: String(getVal(['customer name', 'customer']) || '').trim(),
+          uploaded_by: String(req.userId || 'system'),
+          is_active: true,
           status: 'pending',
-          audioUrl: String(getVal(['recording path', 'audio link']) || '').trim(),
-          createdAt: new Date(),
-          updatedAt: new Date()
+          audio_url: String(getVal(['recording path', 'audio link']) || '').trim()
         });
       } catch (err) {
         results.failed++;
@@ -338,17 +315,13 @@ const uploadCallDataBatch = async (req, res) => {
     }
 
     if (callsToSave.length > 0) {
-      if (!isOffline) {
-        const bulkOps = callsToSave.map(call => ({ insertOne: { document: call } }));
-        const bulkResult = await Call.bulkWrite(bulkOps, { ordered: false });
-        results.success = bulkResult.insertedCount || bulkResult.nInserted || callsToSave.length;
-        saveManyToLocalFile(callsToSave);
-      } else {
-        if (saveManyToLocalFile(callsToSave)) {
-          results.success = callsToSave.length;
-          results.databaseMode = 'offline';
-        }
-      }
+      const { data: inserted, error } = await supabase
+        .from('calls')
+        .insert(callsToSave);
+      
+      if (error) throw error;
+      results.success = callsToSave.length;
+      saveManyToLocalFile(callsToSave);
     }
 
     res.status(200).json({ message: 'Batch uploaded successfully', data: results });
@@ -360,7 +333,12 @@ const uploadCallDataBatch = async (req, res) => {
 const deleteCalls = async (req, res) => {
   try {
     const { ids } = req.body;
-    await Call.deleteMany({ _id: { $in: ids } });
+    const { error } = await supabase
+      .from('calls')
+      .delete()
+      .in('id', ids);
+
+    if (error) throw error;
     res.status(200).json({ message: 'Records deleted' });
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -372,11 +350,23 @@ const uploadAudio = async (req, res) => {
     const results = { total: req.files.length, success: 0, failed: 0, errors: [] };
     for (const file of req.files) {
       const callId = path.basename(file.originalname, path.extname(file.originalname)).trim();
-      const call = await Call.findOne({ callId });
+      
+      // Find by call_id string
+      const { data: call, error: findError } = await supabase
+        .from('calls')
+        .select('id')
+        .eq('call_id', callId)
+        .limit(1)
+        .single();
+
       if (call) {
-        call.audioUrl = `/uploads/audio/${file.filename}`;
-        await call.save();
-        results.success++;
+        const { error: updateError } = await supabase
+          .from('calls')
+          .update({ audio_url: `/uploads/audio/${file.filename}` })
+          .eq('id', call.id);
+
+        if (!updateError) results.success++;
+        else results.errors.push(`Update error for ${file.originalname}: ${updateError.message}`);
       } else {
         results.failed++;
         results.errors.push(`No match for ${file.originalname}`);
@@ -390,24 +380,18 @@ const uploadAudio = async (req, res) => {
 
 const getDashboardStats = async (req, res) => {
   try {
-    const isOffline = process.env.DB_MODE === 'offline' || mongoose.connection.readyState !== 1;
-    let stats;
-    if (!isOffline) {
-      const [totalCalls, pendingCalls, auditedCalls] = await Promise.all([
-        Call.countDocuments({ isActive: true }),
-        Call.countDocuments({ status: 'pending', isActive: true }),
-        Call.countDocuments({ status: 'audited', isActive: true })
-      ]);
-      stats = { totalCalls, pendingCalls, auditedCalls };
-    } else {
-      const localCalls = getCallsFromLocalFile();
-      stats = {
-        totalCalls: localCalls.length,
-        pendingCalls: localCalls.filter(c => c.status === 'pending').length,
-        auditedCalls: localCalls.filter(c => c.status === 'audited').length
-      };
-    }
-    res.status(200).json({ data: { ...stats, databaseMode: isOffline ? 'offline' : 'online' } });
+    const [
+      { count: totalCalls },
+      { count: pendingCalls },
+      { count: auditedCalls }
+    ] = await Promise.all([
+      supabase.from('calls').select('*', { count: 'exact', head: true }).eq('is_active', true),
+      supabase.from('calls').select('*', { count: 'exact', head: true }).eq('status', 'pending').eq('is_active', true),
+      supabase.from('calls').select('*', { count: 'exact', head: true }).eq('status', 'audited').eq('is_active', true)
+    ]);
+
+    const stats = { totalCalls, pendingCalls, auditedCalls };
+    res.status(200).json({ data: { ...stats, databaseMode: 'supabase' } });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -417,7 +401,14 @@ const updateCallStatus = async (req, res) => {
   try {
     const { id } = req.params;
     const { status } = req.body;
-    const call = await Call.findByIdAndUpdate(id, { status }, { new: true });
+    const { data: call, error } = await supabase
+      .from('calls')
+      .update({ status })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) throw error;
     res.json({ status: 'success', data: call });
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -427,11 +418,15 @@ const updateCallStatus = async (req, res) => {
 const getCallsByDateRange = async (req, res) => {
   try {
     const { startDate, endDate } = req.query;
-    const start = new Date(startDate);
-    const end = new Date(endDate);
-    end.setHours(23, 59, 59, 999);
-    const filter = { isActive: true, date: { $gte: start, $lte: end } };
-    const calls = await Call.find(filter).sort({ date: -1 }).lean();
+    const { data: calls, error } = await supabase
+      .from('calls')
+      .select('*')
+      .eq('is_active', true)
+      .gte('call_date', startDate)
+      .lte('call_date', endDate)
+      .order('call_date', { ascending: false });
+
+    if (error) throw error;
     res.status(200).json({ data: calls });
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -440,7 +435,12 @@ const getCallsByDateRange = async (req, res) => {
 
 const deleteAllCalls = async (req, res) => {
   try {
-    await Call.deleteMany({});
+    const { error } = await supabase
+      .from('calls')
+      .delete()
+      .neq('id', 0); // Delete everything where id != 0 (which is all)
+
+    if (error) throw error;
     res.status(200).json({ message: 'All records deleted successfully' });
   } catch (error) {
     res.status(500).json({ message: 'Error deleting all records', error: error.message });

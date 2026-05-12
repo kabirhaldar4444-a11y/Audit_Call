@@ -1,6 +1,6 @@
 const jwt = require('jsonwebtoken');
-const User = require('../models/User');
-const { findUserByUsernameOrEmail, saveUser, verifyPassword } = require('../utils/userPersistence');
+const bcrypt = require('bcryptjs');
+const supabase = require('../config/supabase');
 
 const register = async (req, res) => {
   try {
@@ -11,55 +11,49 @@ const register = async (req, res) => {
       return res.status(400).json({ message: 'Please provide all required fields' });
     }
 
-    // Try to register in MongoDB if connected
-    if (process.env.DB_MODE !== 'offline') {
-      // Check if user exists
-      const existingUser = await User.findOne({ $or: [{ email }, { username }] });
-      if (existingUser) {
-        console.log(`❌ Registration: User already exists - ${username}`);
-        return res.status(400).json({ message: 'User already exists' });
-      }
+    // Check if user exists
+    const { data: existingUser, error: checkError } = await supabase
+      .from('users')
+      .select('id')
+      .or(`username.eq.${username},email.eq.${email}`)
+      .maybeSingle();
 
-      // Create new user
-      const user = new User({ username, email, password, role: 'admin' });
-      await user.save();
-
-      // Generate JWT
-      const secret = process.env.JWT_SECRET || 'call_audit_emergency_secret_2026';
-      const token = jwt.sign(
-        { userId: user?._id || result?.user?._id || 'rescue_id', role: user?.role || result?.user?.role || 'admin' },
-        secret,
-        { expiresIn: '7d' }
-      );
-
-      console.log(`✅ User registered: ${username}`);
-      res.status(201).json({
-        message: 'User registered successfully',
-        token,
-        user: { id: user._id, username: user.username, email: user.email, role: user.role },
-      });
-    } else {
-      // Use offline storage
-      const result = saveUser({ username, email, password, role: 'admin' });
-      
-      if (!result.success) {
-        console.log(`❌ Registration: ${result.error} - ${username}`);
-        return res.status(400).json({ message: result.error });
-      }
-
-      const token = jwt.sign(
-        { userId: result.user._id, role: result.user.role },
-        process.env.JWT_SECRET,
-        { expiresIn: '7d' }
-      );
-
-      console.log(`✅ User registered (offline): ${username}`);
-      res.status(201).json({
-        message: 'User registered successfully',
-        token,
-        user: { id: result.user._id, username: result.user.username, email: result.user.email, role: result.user.role },
-      });
+    if (existingUser) {
+      return res.status(400).json({ message: 'User already exists' });
     }
+
+    // Hash password
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(password, salt);
+
+    // Create new user in Supabase
+    const { data: user, error: insertError } = await supabase
+      .from('users')
+      .insert([{
+        username,
+        email,
+        password: hashedPassword,
+        role: 'admin'
+      }])
+      .select()
+      .single();
+
+    if (insertError) throw insertError;
+
+    // Generate JWT
+    const secret = process.env.JWT_SECRET || 'call_audit_emergency_secret_2026';
+    const token = jwt.sign(
+      { userId: user.id, role: user.role },
+      secret,
+      { expiresIn: '7d' }
+    );
+
+    console.log(`✅ User registered in Supabase: ${username}`);
+    res.status(201).json({
+      message: 'User registered successfully',
+      token,
+      user: { id: user.id, username: user.username, email: user.email, role: user.role },
+    });
   } catch (error) {
     console.error('❌ Registration error:', error.message);
     res.status(500).json({ message: 'Error registering user', error: error.message });
@@ -71,103 +65,89 @@ const login = async (req, res) => {
     const { username: rawUsername, password } = req.body;
     const username = rawUsername ? rawUsername.trim() : '';
 
-    // Validate input
     if (!username || !password) {
       return res.status(400).json({ message: 'Please provide username and password' });
     }
 
-    // Try to login using MongoDB if connected
-    if (process.env.DB_MODE !== 'offline') {
-      // Find user
-      let user = await User.findOne({ $or: [{ username }, { email: username }] });
-      
-      // MASTER RESCUE PROTOCOL: If you are using the default admin/admin123, 
-      // we force-repair and INSTANTLY log in, bypassing further DB checks.
-      if (username === 'admin' && password === 'admin123') {
-        if (!user) {
-          console.log('⚡ Rescue: Admin missing. Creating and granting access...');
-          user = new User({ username: 'admin', email: 'admin@callaudit.com', password: 'admin123', role: 'admin' });
-          await user.save();
-        } else {
-          const check = await user.comparePassword(password);
-          if (!check) {
-            console.log('⚡ Rescue: Admin password mismatch. Resetting and granting access...');
-            user.password = 'admin123';
-            await user.save();
-          }
+    // Master Rescue for Supabase
+    if (username === 'admin' && password === 'admin123') {
+      const { data: adminUser, error: adminError } = await supabase
+        .from('users')
+        .select('*')
+        .eq('username', 'admin')
+        .maybeSingle();
+
+      let targetUser = adminUser;
+
+      if (!adminUser) {
+        // Create admin if missing
+        const salt = await bcrypt.genSalt(10);
+        const hashedPassword = await bcrypt.hash('admin123', salt);
+        const { data: newUser, error: createError } = await supabase
+          .from('users')
+          .insert([{ username: 'admin', email: 'admin@callaudit.com', password: hashedPassword, role: 'admin' }])
+          .select()
+          .single();
+        if (createError) throw createError;
+        targetUser = newUser;
+      } else {
+        // Verify password or reset if mismatch
+        const isMatch = await bcrypt.compare('admin123', adminUser.password);
+        if (!isMatch) {
+          const salt = await bcrypt.genSalt(10);
+          const hashedPassword = await bcrypt.hash('admin123', salt);
+          const { data: updatedUser, error: resetError } = await supabase
+            .from('users')
+            .update({ password: hashedPassword })
+            .eq('id', adminUser.id)
+            .select()
+            .single();
+          if (resetError) throw resetError;
+          targetUser = updatedUser;
         }
-        
-        // AUTO-PASS: Skip further DB password checks for rescue account
-        const token = jwt.sign(
-          { userId: user._id, role: user.role },
-          process.env.JWT_SECRET,
-          { expiresIn: '7d' }
-        );
-
-        console.log(`✅ Rescue login successful: ${username}`);
-        return res.status(200).json({
-          message: 'Login successful via Rescue Protocol',
-          token,
-          user: { id: user._id, username: user.username, email: user.email, role: user.role },
-        });
       }
 
-      if (!user) {
-        console.log(`❌ Login attempt: User not found - ${username}`);
-        return res.status(401).json({ message: 'Invalid credentials' });
-      }
-
-      // Normal comparison for all other cases
-      const isPasswordValid = await user.comparePassword(password);
-      if (!isPasswordValid) {
-        console.log(`❌ Login attempt: Invalid password for user - ${username}`);
-        return res.status(401).json({ message: 'Invalid credentials (B4)' });
-      }
-
-      // Generate JWT
-      const secret = process.env.JWT_SECRET || 'call_audit_emergency_secret_2026';
       const token = jwt.sign(
-        { userId: user?._id || result?.user?._id || 'rescue_id', role: user?.role || result?.user?.role || 'admin' },
-        secret,
+        { userId: targetUser.id, role: targetUser.role },
+        process.env.JWT_SECRET || 'call_audit_emergency_secret_2026',
         { expiresIn: '7d' }
       );
 
-      console.log(`✅ Login successful: ${username}`);
-      res.status(200).json({
-        message: 'Login successful',
+      return res.status(200).json({
+        message: 'Login successful via Rescue Protocol',
         token,
-        user: { id: user._id, username: user.username, email: user.email, role: user.role },
-      });
-    } else {
-      // Use offline storage
-      const user = findUserByUsernameOrEmail(username, username);
-      
-      if (!user) {
-        console.log(`❌ Login attempt (offline): User not found - ${username}`);
-        return res.status(401).json({ message: 'Invalid credentials' });
-      }
-
-      // Verify password
-      if (!verifyPassword(user.password, password)) {
-        console.log(`❌ Login attempt (offline): Invalid password for user - ${username}`);
-        return res.status(401).json({ message: 'Invalid credentials' });
-      }
-
-      // Generate JWT
-      const secret = process.env.JWT_SECRET || 'call_audit_emergency_secret_2026';
-      const token = jwt.sign(
-        { userId: user?._id || result?.user?._id || 'rescue_id', role: user?.role || result?.user?.role || 'admin' },
-        secret,
-        { expiresIn: '7d' }
-      );
-
-      console.log(`✅ Login successful (offline): ${username}`);
-      res.status(200).json({
-        message: 'Login successful',
-        token,
-        user: { id: user._id, username: user.username, email: user.email, role: user.role },
+        user: { id: targetUser.id, username: targetUser.username, email: targetUser.email, role: targetUser.role },
       });
     }
+
+    // Normal Login
+    const { data: user, error: loginError } = await supabase
+      .from('users')
+      .select('*')
+      .or(`username.eq.${username},email.eq.${username}`)
+      .maybeSingle();
+
+    if (!user) {
+      return res.status(401).json({ message: 'Invalid credentials' });
+    }
+
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) {
+      return res.status(401).json({ message: 'Invalid credentials' });
+    }
+
+    const secret = process.env.JWT_SECRET || 'call_audit_emergency_secret_2026';
+    const token = jwt.sign(
+      { userId: user.id, role: user.role },
+      secret,
+      { expiresIn: '7d' }
+    );
+
+    res.status(200).json({
+      message: 'Login successful',
+      token,
+      user: { id: user.id, username: user.username, email: user.email, role: user.role },
+    });
   } catch (error) {
     console.error('❌ Login error:', error.message);
     res.status(500).json({ message: 'Error logging in', error: error.message });

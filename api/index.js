@@ -2,49 +2,22 @@ const express = require('express');
 const cors = require('cors');
 const dotenv = require('dotenv');
 const path = require('path');
-
-const connectDB = require('./config/database');
-const initializeDatabase = require('./config/seed');
+const supabase = require('./config/supabase');
 
 // Load environment variables
 dotenv.config();
 
-// Check for required environment variables
-if (!process.env.MONGODB_URI) {
-  console.error('ERROR: MONGODB_URI is not set! API calls will fail.');
-}
-
 if (!process.env.JWT_SECRET) {
-  console.error('ERROR: JWT_SECRET is not set! Auth will fail.');
+  console.warn('⚠️  JWT_SECRET is not set! Using fallback for safety.');
 }
 
 // Initialize app
 const app = express();
 
-// Middleware - OPEN CORS for connectivity debugging
+// Middleware
 app.use(cors({ origin: '*', credentials: true }));
 app.use(express.json({ limit: '1gb' }));
 app.use(express.urlencoded({ limit: '1gb', extended: true }));
-
-// --- CONNECTION SHIELD MIDDLEWARE ---
-app.use(async (req, res, next) => {
-  const mongoose = require('mongoose');
-  if (mongoose.connection.readyState !== 1) {
-    console.log('🛡️ Shield: Database not ready. Waiting for connection...');
-    try {
-      const connectDB = require('./config/database');
-      await connectDB();
-      console.log('🛡️ Shield: Database connection established.');
-    } catch (err) {
-      console.error('🛡️ Shield Error:', err.message);
-      return res.status(503).json({ 
-        message: 'Database connection in progress. Please try again in a few seconds.',
-        error: err.message 
-      });
-    }
-  }
-  next();
-});
 
 // Static files for uploads
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
@@ -54,67 +27,58 @@ const authRoutes = require('./routes/authRoutes');
 const callRoutes = require('./routes/callRoutes');
 const auditRoutes = require('./routes/auditRoutes');
 
-// Standard routes
+// API routes
 app.use('/api/auth', authRoutes);
 app.use('/api/calls', callRoutes);
 app.use('/api/audits', auditRoutes);
 
-// Fallback routes (Vercel often strips the /api prefix during rewrites)
+// Fallback routes
 app.use('/auth', authRoutes);
 app.use('/calls', callRoutes);
 app.use('/audits', auditRoutes);
 
-// Debug routes (development only)
-if (process.env.NODE_ENV === 'development') {
-  app.use('/api/debug', require('./routes/debugRoutes'));
-}
-
 // Root route
 app.get('/', (req, res) => {
   res.status(200).json({ 
-    message: 'Call Audit API is live!',
+    message: 'Call Audit API (Supabase Edition) is live!',
     healthCheck: '/api/health',
-    environment: process.env.NODE_ENV || 'production'
+    version: 'v4.0 (Supabase Migration)'
   });
 });
 
-// Health checks
-app.get('/health', (req, res) => {
-  const mongoose = require('mongoose');
-  const dbStatus = mongoose.connection.readyState === 1 ? 'connected' : 'disconnected';
-  const detectedKeys = Object.keys(process.env).filter(k => k.includes('MONGO') || k.includes('DB'));
-  const uriPresent = !!(process.env.MONGODB_URI || process.env.MONGO_URI || process.env.MONGODB_URL || process.env.DATABASE_URL);
-  
-  res.status(200).json({ 
-    status: 'ok', 
-    version: 'v3.0 (Delete-All Feature)',
-    database: dbStatus, 
-    mode: process.env.DB_MODE || 'online',
-    uriPresent: uriPresent || true, // True because hardcoded fallback is active
-    isNuclear: !uriPresent,
-    detectedKeys,
-    lastError: global.lastDbError || null,
-    lastAttempt: global.lastDbAttempt || null
-  });
+// Health check
+app.get('/api/health', async (req, res) => {
+  try {
+    const { data, error } = await supabase.from('calls').select('id').limit(1);
+    const dbStatus = error ? 'error' : 'connected';
+    
+    res.status(200).json({ 
+      status: 'ok', 
+      version: 'v4.0 (Supabase Migration)',
+      database: dbStatus, 
+      provider: 'supabase',
+      error: error ? error.message : null
+    });
+  } catch (err) {
+    res.status(500).json({ status: 'error', error: err.message });
+  }
 });
 
-app.get('/api/health', (req, res) => {
-  const mongoose = require('mongoose');
-  const dbStatus = mongoose.connection.readyState === 1 ? 'connected' : 'disconnected';
-  const detectedKeys = Object.keys(process.env).filter(k => k.includes('MONGO') || k.includes('DB'));
-  const uriPresent = !!(process.env.MONGODB_URI || process.env.MONGO_URI || process.env.MONGODB_URL || process.env.DATABASE_URL);
-  
-  res.status(200).json({ 
-    status: 'ok', 
-    version: 'v3.0 (Delete-All Feature)',
-    database: dbStatus, 
-    mode: process.env.DB_MODE || 'online',
-    uriPresent: uriPresent || true, // True because hardcoded fallback is active
-    isNuclear: !uriPresent,
-    detectedKeys,
-    lastError: global.lastDbError || null,
-    lastAttempt: global.lastDbAttempt || null
-  });
+app.get('/health', async (req, res) => {
+  try {
+    const { data, error } = await supabase.from('calls').select('id').limit(1);
+    const dbStatus = error ? 'error' : 'connected';
+    
+    res.status(200).json({ 
+      status: 'ok', 
+      version: 'v4.0 (Supabase Migration)',
+      database: dbStatus, 
+      provider: 'supabase',
+      error: error ? error.message : null
+    });
+  } catch (err) {
+    res.status(500).json({ status: 'error', error: err.message });
+  }
 });
 
 // Error handling middleware
@@ -128,31 +92,13 @@ app.use((req, res) => {
   res.status(404).json({ message: 'Route not found' });
 });
 
-// Connect DB asynchronously for serverless
-connectDB().then(() => {
-  if (process.env.DB_MODE !== 'offline') {
-    initializeDatabase().catch(err => console.warn('⚠️  Seed skipped:', err.message));
-  }
-}).catch(err => console.error('❌ Failed to connect to DB:', err.message));
-
 // Only bind port in local development
 if (require.main === module || process.env.NODE_ENV !== 'production') {
   const PORT = process.env.PORT || 5001;
   const server = app.listen(PORT, () => {
-    console.log(`\n✅ Server running on port ${PORT}`);
+    console.log(`\n✅ Supabase Server running on port ${PORT}`);
   });
-  // Set timeout to 15 minutes for extremely large file processing
   server.timeout = 900000; 
-  server.keepAliveTimeout = 900000;
 }
-
-// Handle unhandled promise rejections gracefully
-process.on('unhandledRejection', (reason, promise) => {
-  console.error('Unhandled Rejection at:', promise, 'reason:', reason);
-});
-
-process.on('uncaughtException', (error) => {
-  console.error('Uncaught Exception:', error);
-});
 
 module.exports = app;

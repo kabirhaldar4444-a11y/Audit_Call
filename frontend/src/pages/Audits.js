@@ -63,7 +63,7 @@ const Audits = () => {
       ) : (
         <div className="audits-list">
           {audits.map((audit, index) => (
-            <div key={audit?._id || index} className="audit-card">
+            <div key={audit?.id || index} className="audit-card">
               <div className="audit-header">
                 <h3>Call: {audit?.callId?.callId || 'N/A'}</h3>
                 <div className="overall-score">
