@@ -22,11 +22,10 @@ async function saveCallData(callData, Call) {
     // Try to save to MongoDB if connected
     if (process.env.DB_MODE !== 'offline' && Call) {
       try {
+        // Use insertOne to allow duplicates
         await Call.bulkWrite([{
-          updateOne: {
-            filter: { callId: callData.callId },
-            update: { $set: callData },
-            upsert: true
+          insertOne: {
+            document: callData
           }
         }], { ordered: false });
       } catch (dbError) {
@@ -54,13 +53,8 @@ function saveToLocalFile(callData) {
       allCalls = JSON.parse(content || '[]');
     }
     
-    // Find and update existing call or add new one
-    const existingIndex = allCalls.findIndex(c => c.callId === callData.callId);
-    if (existingIndex > -1) {
-      allCalls[existingIndex] = { ...allCalls[existingIndex], ...callData };
-    } else {
-      allCalls.push(callData);
-    }
+    // Always append new records to allow duplicates
+    allCalls.push(callData);
     
     fs.writeFileSync(dataStorePath, JSON.stringify(allCalls, null, 2));
     console.log(`📁 Data saved locally: ${callData.callId}`);
@@ -89,17 +83,8 @@ function saveManyToLocalFile(newCallsArray) {
       }
     }
 
-    // Use a Map for faster lookups during merging
-    const callMap = new Map(allCalls.map(c => [c.callId, c]));
-    
-    // Add/Update new records
-    newCallsArray.forEach(call => {
-      if (call.callId) {
-        callMap.set(call.callId, { ...(callMap.get(call.callId) || {}), ...call });
-      }
-    });
-
-    const updatedCalls = Array.from(callMap.values());
+    // Always append new records to allow duplicates
+    const updatedCalls = [...allCalls, ...newCallsArray];
     
     // Write once
     fs.writeFileSync(dataStorePath, JSON.stringify(updatedCalls, null, 2));
@@ -187,11 +172,10 @@ async function syncLocalDataToMongoDB(Call) {
       return { synced: 0 };
     }
     
+    // Use insertOne for syncing to allow duplicates
     const bulkOps = allCalls.map(call => ({
-      updateOne: {
-        filter: { callId: call.callId },
-        update: { $set: call },
-        upsert: true
+      insertOne: {
+        document: call
       }
     }));
     
