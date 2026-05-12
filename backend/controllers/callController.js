@@ -4,6 +4,64 @@ const path = require('path');
 const xlsx = require('xlsx');
 const { saveToLocalFile, saveManyToLocalFile, getCallsFromLocalFile } = require('../utils/dataPersistence');
 
+/**
+ * Helpers for data processing
+ */
+const normalizeRow = (row) => {
+  const normalized = {};
+  Object.keys(row).forEach(key => {
+    const lowerKey = key.toLowerCase().trim();
+    const spaceNormalizedKey = lowerKey.replace(/_/g, ' ').replace(/\s+/g, ' ');
+    const noSpaceKey = lowerKey.replace(/_/g, '').replace(/\s+/g, '');
+    
+    normalized[spaceNormalizedKey] = row[key];
+    if (!normalized[noSpaceKey]) normalized[noSpaceKey] = row[key];
+  });
+  return normalized;
+};
+
+const getValFromRow = (normalizedRow, keys) => {
+  for (const k of keys) {
+    let val = normalizedRow[k];
+    if (val !== undefined && val !== null) {
+      let s = String(val).trim();
+      if (s !== '' && s !== '--' && s !== '---' && s !== 'N/A' && s !== 'null' && s !== 'undefined') return s;
+    }
+  }
+  return '';
+};
+
+const parseDate = (dateStr) => {
+  if (dateStr instanceof Date) return dateStr;
+  if (typeof dateStr === 'number') return new Date(Math.round((dateStr - 25569) * 86400 * 1000));
+  if (!dateStr) return new Date();
+
+  let s = dateStr.toString().trim();
+  const ddmm = s.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})(.*)$/);
+  if (ddmm) {
+    let day = parseInt(ddmm[1]);
+    let month = parseInt(ddmm[2]) - 1;
+    const year = parseInt(ddmm[3]);
+    const now = new Date();
+    if (year === now.getFullYear()) {
+      const date1 = new Date(year, month, day);
+      const date2 = new Date(year, day - 1, month + 1);
+      if (date1 > new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000) && date2 <= now) {
+        day = month + 1;
+        month = parseInt(ddmm[1]) - 1;
+      }
+    }
+    const timePart = ddmm[4].trim();
+    if (timePart) {
+      const parts = timePart.split(/[:\s]/).filter(x => x).map(Number);
+      return new Date(year, month, day, ...parts);
+    }
+    return new Date(year, month, day);
+  }
+  const d = new Date(s);
+  return isNaN(d.getTime()) ? new Date() : d;
+};
+
 const getAllCalls = async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 1;
@@ -166,33 +224,13 @@ const uploadCallData = async (req, res) => {
     for (let i = 0; i < data.length; i++) {
       const row = data[i];
       try {
-        const normalizedRow = {};
-        Object.keys(row).forEach(key => {
-          const lowerKey = key.toLowerCase().trim();
-          const spaceNormalizedKey = lowerKey.replace(/_/g, ' ').replace(/\s+/g, ' ');
-          const noSpaceKey = lowerKey.replace(/_/g, '').replace(/\s+/g, '');
-          
-          normalizedRow[spaceNormalizedKey] = row[key];
-          if (!normalizedRow[noSpaceKey]) normalizedRow[noSpaceKey] = row[key];
-        });
-
-        // Smart Value Getter with placeholder detection
-        const getVal = (keys) => {
-          for (const k of keys) {
-            let val = normalizedRow[k];
-            if (val !== undefined && val !== null) {
-              let s = String(val).trim();
-              if (s !== '' && s !== '--' && s !== '---' && s !== 'N/A' && s !== 'null' && s !== 'undefined') return s;
-            }
-          }
-          return '';
-        };
+        const normalizedRow = normalizeRow(row);
+        const getVal = (keys) => getValFromRow(normalizedRow, keys);
 
         // Robust Call ID extraction
         let rawCallId = getVal(['call id', 'callid', 'sl no', 'serial no', 'slno', 'id', 'uid', 'record id', 'recordid', 'lead id', 'leadid']);
         
         // HIGHER PRIORITY: Look for a UUID-like string in any column FIRST
-        // This prevents picking up numeric Agent IDs (like 1173938) as Call IDs
         const allValues = Object.values(row);
         let foundUuid = '';
         for (const val of allValues) {
@@ -207,11 +245,22 @@ const uploadCallData = async (req, res) => {
           rawCallId = foundUuid;
         }
 
-        // Final fallback: If ID looks like a short number (Agent ID), make it composite
-        if (!rawCallId || (typeof rawCallId === 'string' && rawCallId.length < 10 && /^\d+$/.test(rawCallId))) {
-          const agentPart = String(getVal(['agent', 'agent name']) || 'unknown').toLowerCase().replace(/\s+/g, '');
-          const phonePart = String(getVal(['phone number', 'phone']) || '0000').replace(/\D/g, '');
-          rawCallId = `COMP-${agentPart}-${phonePart}-${i}`;
+        // Map fields early to help with ID generation
+        const agentName = String(getVal(['agent', 'agent name', 'agentname', 'agent full name', 'agentfullname', 'staff', 'caller', 'user']) || 'Unknown Agent').trim();
+        const phoneNumber = String(getVal(['phone number', 'phonenumber', 'phone', 'customer number', 'customernumber', 'mobile', 'contact']) || '').trim();
+        const dateStr = getVal(['date & time', 'date time', 'datetime', 'date', 'timestamp', 'time', 'date-time', 'call date', 'calldate', 'transaction date', 'transactiondate']);
+        const finalDate = parseDate(dateStr);
+        const datePart = finalDate.toISOString().split('T')[0];
+
+        // Final fallback: If ID looks like a short number (Agent ID) or is missing, make it composite
+        const idStr = String(rawCallId || '').trim();
+        const isNumericAndShort = idStr.length > 0 && idStr.length < 10 && /^\d+$/.test(idStr);
+        
+        if (!idStr || isNumericAndShort) {
+          const agentPart = agentName.toLowerCase().replace(/\s+/g, '');
+          const phonePart = phoneNumber.replace(/\D/g, '') || '0000';
+          // Include datePart to prevent cross-day collisions
+          rawCallId = `COMP-${agentPart}-${phonePart}-${datePart}-${i}`;
         }
 
         let callId = String(rawCallId || '').trim();
@@ -225,60 +274,13 @@ const uploadCallData = async (req, res) => {
         }
         seenIdsInBatch.add(uniqueCallId);
 
-        // Map fields
-        // Map fields - prioritize exact user headers
-        const agentName = String(getVal(['agent', 'agent name', 'agentname', 'agent full name', 'agentfullname', 'staff', 'caller', 'user']) || 'Unknown Agent').trim();
+        // Map remaining fields
         const agentEmail = String(getVal(['agent email', 'agentemail', 'email', 'email id', 'emailid']) || '').toLowerCase().trim();
         const firstDispose = String(getVal(['first dispose', 'first_dispose', 'firstdisposition', 'sub disposition', 'sub_disposition', 'subdisposition', 'reason', 'substatus', 'sub-status']) || '').trim();
         const dispose = String(getVal(['dispose', 'disposition', 'status', 'result', 'call result', 'callresult', 'resolution', 'terminating reason', 'disconnect reason', 'agent status', 'call status']) || '').trim();
         const campaign = String(getVal(['campaign', 'campaign name', 'campaign_name', 'campaign id', 'campaign_id', 'camp', 'campaignname', 'campaignid', 'queue', 'queue name']) || '').trim();
         const processName = String(getVal(['process', 'dept', 'department', 'department name', 'departmentname', 'campaign', 'project', 'client']) || 'General').trim();
-
-        const dateStr = getVal(['date & time', 'date time', 'datetime', 'date', 'timestamp', 'time', 'date-time', 'call date', 'calldate', 'transaction date', 'transactiondate']);
         const callTime = String(getVal(['call time', 'calltime', 'time of call', 'timeofcall']) || '').trim();
-        
-        let date;
-        if (dateStr instanceof Date) {
-          date = dateStr;
-        } else if (typeof dateStr === 'number') {
-          date = new Date(Math.round((dateStr - 25569) * 86400 * 1000));
-        } else if (dateStr) {
-          let s = dateStr.toString().trim();
-          // DD-MM-YYYY format handler
-          const ddmm = s.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})(.*)$/);
-          if (ddmm) {
-            let day = parseInt(ddmm[1]);
-            let month = parseInt(ddmm[2]) - 1;
-            const year = parseInt(ddmm[3]);
-            
-            // Smart Date Swap: If the date is in the future but swapping D/M makes it recent
-            const now = new Date();
-            if (year === now.getFullYear()) {
-              const date1 = new Date(year, month, day);
-              const date2 = new Date(year, day - 1, month + 1);
-              // If date1 is more than 30 days in future AND date2 is in the past/recent
-              if (date1 > new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000) && date2 <= now) {
-                const temp = day;
-                day = month + 1;
-                month = temp - 1;
-              }
-            }
-
-            const timePart = ddmm[4].trim();
-            if (timePart) {
-              date = new Date(year, month, day, ...timePart.split(/[:\s]/).filter(x => x).map(Number));
-            } else {
-              date = new Date(year, month, day);
-            }
-          } else {
-            date = new Date(s);
-          }
-        } else {
-          date = new Date();
-        }
-        const finalDate = (date && !isNaN(date.getTime())) ? date : new Date();
-
-        const phoneNumber = String(getVal(['phone number', 'phonenumber', 'phone', 'customer number', 'customernumber', 'mobile', 'contact']) || '').trim();
         const duration = String(getVal(['duration', 'talktime', 'talk time', 'call duration', 'callduration', 'call time', 'calltime', 'length']) || '').trim();
         const remarks = String(getVal(['remarks', 'comment', 'notes', 'feedback']) || '').trim();
         const customerName = String(getVal(['customer name', 'customername', 'customer', 'client name', 'clientname']) || '').trim();
@@ -387,21 +389,13 @@ const uploadCallDataBatch = async (req, res) => {
     for (let i = 0; i < data.length; i++) {
       const row = data[i];
       try {
-        const normalizedRow = {};
-        Object.keys(row).forEach(key => {
-          const lowerKey = key.toLowerCase().trim();
-          const spaceNormalizedKey = lowerKey.replace(/_/g, ' ').replace(/\s+/g, ' ');
-          const noSpaceKey = lowerKey.replace(/_/g, '').replace(/\s+/g, '');
-          
-          normalizedRow[spaceNormalizedKey] = row[key];
-          if (!normalizedRow[noSpaceKey]) normalizedRow[noSpaceKey] = row[key];
-        });
+        const normalizedRow = normalizeRow(row);
+        const getVal = (keys) => getValFromRow(normalizedRow, keys);
 
         // Robust Call ID extraction
         let rawCallId = getVal(['call id', 'callid', 'sl no', 'serial no', 'slno', 'id', 'uid', 'record id', 'recordid', 'lead id', 'leadid']);
         
         // HIGHER PRIORITY: Look for a UUID-like string in any column FIRST
-        // This prevents picking up numeric Agent IDs (like 1173938) as Call IDs
         const allValues = Object.values(row);
         let foundUuid = '';
         for (const val of allValues) {
@@ -416,11 +410,22 @@ const uploadCallDataBatch = async (req, res) => {
           rawCallId = foundUuid;
         }
 
-        // Final fallback: If ID looks like a short number (Agent ID), make it composite
-        if (!rawCallId || (typeof rawCallId === 'string' && rawCallId.length < 10 && /^\d+$/.test(rawCallId))) {
-          const agentPart = String(getVal(['agent', 'agent name']) || 'unknown').toLowerCase().replace(/\s+/g, '');
-          const phonePart = String(getVal(['phone number', 'phone']) || '0000').replace(/\D/g, '');
-          rawCallId = `COMP-${agentPart}-${phonePart}-${i}`;
+        // Map fields early to help with ID generation
+        const agentName = String(getVal(['agent', 'agent name', 'agentname', 'agent full name', 'agentfullname', 'staff', 'caller', 'user']) || 'Unknown Agent').trim();
+        const phoneNumber = String(getVal(['phone number', 'phonenumber', 'phone', 'customer number', 'customernumber', 'mobile', 'contact']) || '').trim();
+        const dateStr = getVal(['date & time', 'date time', 'datetime', 'date', 'timestamp', 'time', 'date-time', 'call date', 'calldate', 'transaction date', 'transactiondate']);
+        const finalDate = parseDate(dateStr);
+        const datePart = finalDate.toISOString().split('T')[0];
+
+        // Final fallback: If ID looks like a short number (Agent ID) or is missing, make it composite
+        const idStr = String(rawCallId || '').trim();
+        const isNumericAndShort = idStr.length > 0 && idStr.length < 10 && /^\d+$/.test(idStr);
+        
+        if (!idStr || isNumericAndShort) {
+          const agentPart = agentName.toLowerCase().replace(/\s+/g, '');
+          const phonePart = phoneNumber.replace(/\D/g, '') || '0000';
+          // Include datePart to prevent cross-day collisions
+          rawCallId = `COMP-${agentPart}-${phonePart}-${datePart}-${i}`;
         }
         
         let callId = String(rawCallId || '').trim();
@@ -432,68 +437,12 @@ const uploadCallDataBatch = async (req, res) => {
         }
         seenIdsInBatch.add(uniqueCallId);
 
-        const agentName = String(
-          normalizedRow['agent'] ||
-          normalizedRow['agent name'] ||
-          normalizedRow['agent full name'] ||
-          normalizedRow['agentname'] ||
-          normalizedRow['staff'] ||
-          normalizedRow['caller'] ||
-          normalizedRow['user'] ||
-          'Unknown Agent'
-        ).trim();
-        const agentEmail = String(normalizedRow['agent email'] || normalizedRow['email'] || normalizedRow['agentemail'] || normalizedRow['email id'] || '').toLowerCase().trim();
-        const firstDispose = String(normalizedRow['first dispose'] || normalizedRow['first_dispose'] || normalizedRow['firstdispose'] || normalizedRow['sub disposition'] || normalizedRow['sub_disposition'] || normalizedRow['subdisposition'] || normalizedRow['reason'] || '').trim();
-        const dispose = String(normalizedRow['dispose'] || normalizedRow['disposition'] || normalizedRow['status'] || normalizedRow['result'] || normalizedRow['call result'] || '').trim();
-        const campaign = String(normalizedRow['campaign'] || normalizedRow['campaign name'] || normalizedRow['campaign_name'] || normalizedRow['campaign id'] || normalizedRow['campaign_id'] || normalizedRow['camp'] || '').trim();
-        const processName = String(normalizedRow['process'] || normalizedRow['dept'] || normalizedRow['department'] || normalizedRow['department name'] || normalizedRow['campaign'] || 'General').trim();
-
-        const dateStr = getVal(['date & time', 'date time', 'datetime', 'date', 'timestamp', 'time', 'date-time', 'call date', 'calldate', 'transaction date', 'transactiondate']);
+        const agentEmail = String(getVal(['agent email', 'agentemail', 'email', 'email id', 'emailid']) || '').toLowerCase().trim();
+        const firstDispose = String(getVal(['first dispose', 'first_dispose', 'firstdisposition', 'sub disposition', 'sub_disposition', 'subdisposition', 'reason', 'substatus', 'sub-status']) || '').trim();
+        const dispose = String(getVal(['dispose', 'disposition', 'status', 'result', 'call result', 'callresult', 'resolution', 'terminating reason', 'disconnect reason', 'agent status', 'call status']) || '').trim();
+        const campaign = String(getVal(['campaign', 'campaign name', 'campaign_name', 'campaign id', 'campaign_id', 'camp', 'campaignname', 'campaignid', 'queue', 'queue name']) || '').trim();
+        const processName = String(getVal(['process', 'dept', 'department', 'department name', 'departmentname', 'campaign', 'project', 'client']) || 'General').trim();
         const callTime = String(getVal(['call time', 'calltime', 'time of call', 'timeofcall']) || '').trim();
-
-        let date;
-        if (dateStr instanceof Date) {
-          date = dateStr;
-        } else if (typeof dateStr === 'number') {
-          date = new Date(Math.round((dateStr - 25569) * 86400 * 1000));
-        } else if (dateStr) {
-          let s = dateStr.toString().trim();
-          // DD-MM-YYYY format handler
-          const ddmm = s.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})(.*)$/);
-          if (ddmm) {
-            let day = parseInt(ddmm[1]);
-            let month = parseInt(ddmm[2]) - 1;
-            const year = parseInt(ddmm[3]);
-            
-            // Smart Date Swap: If the date is in the future but swapping D/M makes it recent
-            const now = new Date();
-            if (year === now.getFullYear()) {
-              const date1 = new Date(year, month, day);
-              const date2 = new Date(year, day - 1, month + 1);
-              // If date1 is more than 30 days in future AND date2 is in the past/recent
-              if (date1 > new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000) && date2 <= now) {
-                const temp = day;
-                day = month + 1;
-                month = temp - 1;
-              }
-            }
-
-            const timePart = ddmm[4].trim();
-            if (timePart) {
-              date = new Date(year, month, day, ...timePart.split(/[:\s]/).filter(x => x).map(Number));
-            } else {
-              date = new Date(year, month, day);
-            }
-          } else {
-            date = new Date(s);
-          }
-        } else {
-          date = new Date();
-        }
-
-        const finalDate = (date && !isNaN(date.getTime())) ? date : new Date();
-
-        const phoneNumber = String(getVal(['phone number', 'phonenumber', 'phone', 'customer number', 'customernumber', 'mobile', 'contact']) || '').trim();
         const duration = String(getVal(['duration', 'talktime', 'talk time', 'call duration', 'callduration', 'call time', 'calltime', 'length']) || '').trim();
         const remarks = String(getVal(['remarks', 'comment', 'notes', 'feedback']) || '').trim();
         const customerName = String(getVal(['customer name', 'customername', 'customer', 'client name', 'clientname']) || '').trim();
