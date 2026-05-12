@@ -223,7 +223,10 @@ const Dashboard = () => {
           setUploadProgress(Math.round((totalProcessed / data.length) * 100));
 
           try {
-            const response = await api.post('/calls/upload-batch', { data: batch });
+            const response = await api.post('/calls/upload-batch', { 
+              data: batch,
+              startIndex: i
+            });
             const result = response.data?.data;
             if (result?.success === 0 && result?.errors?.length > 0) {
               lastBatchError = result.errors[0];

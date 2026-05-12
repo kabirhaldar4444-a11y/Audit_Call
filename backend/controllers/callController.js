@@ -265,12 +265,12 @@ const uploadCallData = async (req, res) => {
 
         let callId = String(rawCallId || '').trim();
 
-        // Prevent collisions within this upload batch
         let uniqueCallId = callId;
-        let counter = 1;
-        while (seenIdsInBatch.has(uniqueCallId)) {
-          uniqueCallId = `${callId}_${counter}`;
-          counter++;
+        const globalIndex = i; // For single file upload, start index is always 0
+        
+        // Prevent collisions within this upload batch
+        if (seenIdsInBatch.has(uniqueCallId)) {
+          uniqueCallId = `${callId}_${globalIndex}`;
         }
         seenIdsInBatch.add(uniqueCallId);
 
@@ -366,7 +366,7 @@ const uploadCallData = async (req, res) => {
 
 const uploadCallDataBatch = async (req, res) => {
   try {
-    const { data } = req.body;
+    const { data, startIndex = 0 } = req.body;
     if (!data || !Array.isArray(data)) {
       return res.status(400).json({ message: 'Please provide an array of data records' });
     }
@@ -428,10 +428,11 @@ const uploadCallDataBatch = async (req, res) => {
         
         let callId = String(rawCallId || '').trim();
         let uniqueCallId = callId;
-        let counter = 1;
-        while (seenIdsInBatch.has(uniqueCallId)) {
-          uniqueCallId = `${callId}_${counter}`;
-          counter++;
+        const globalIndex = startIndex + i;
+        
+        // Prevent collisions within or across batches
+        if (seenIdsInBatch.has(uniqueCallId)) {
+          uniqueCallId = `${callId}_${globalIndex}`;
         }
         seenIdsInBatch.add(uniqueCallId);
 

@@ -72,7 +72,7 @@ const callSchema = new mongoose.Schema(
       index: true,
     },
   },
-  { timestamps: true }
+  { timestamps: true, autoIndex: false }
 );
 
 // Compound index for date filtering and status
