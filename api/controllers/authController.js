@@ -71,53 +71,65 @@ const login = async (req, res) => {
 
     // Master Rescue for Supabase
     if (username === 'admin' && password === 'admin123') {
-      const { data: adminUser, error: adminError } = await supabase
-        .from('users')
-        .select('*')
-        .eq('username', 'admin')
-        .maybeSingle();
-
-      let targetUser = adminUser;
-
-      if (!adminUser) {
-        // Create admin if missing
-        const salt = await bcrypt.genSalt(10);
-        const hashedPassword = await bcrypt.hash('admin123', salt);
-        const { data: newUser, error: createError } = await supabase
+      try {
+        const { data: adminUser, error: adminError } = await supabase
           .from('users')
-          .insert([{ username: 'admin', email: 'admin@callaudit.com', password: hashedPassword, role: 'admin' }])
-          .select()
-          .single();
-        if (createError) throw createError;
-        targetUser = newUser;
-      } else {
-        // Verify password or reset if mismatch
-        const isMatch = await bcrypt.compare('admin123', adminUser.password);
-        if (!isMatch) {
+          .select('*')
+          .eq('username', 'admin')
+          .maybeSingle();
+
+        if (adminError) {
+           console.error('Supabase Table Error:', adminError.message);
+           return res.status(500).json({ 
+             message: 'Database Table Missing. Please run the SQL schema in Supabase.',
+             error: adminError.message 
+           });
+        }
+
+        let targetUser = adminUser;
+
+        if (!adminUser) {
+          // Create admin if missing
           const salt = await bcrypt.genSalt(10);
           const hashedPassword = await bcrypt.hash('admin123', salt);
-          const { data: updatedUser, error: resetError } = await supabase
+          const { data: newUser, error: createError } = await supabase
             .from('users')
-            .update({ password: hashedPassword })
-            .eq('id', adminUser.id)
+            .insert([{ username: 'admin', email: 'admin@callaudit.com', password: hashedPassword, role: 'admin' }])
             .select()
             .single();
-          if (resetError) throw resetError;
-          targetUser = updatedUser;
+          if (createError) throw createError;
+          targetUser = newUser;
+        } else {
+          // Verify password or reset if mismatch
+          const isMatch = await bcrypt.compare('admin123', adminUser.password);
+          if (!isMatch) {
+            const salt = await bcrypt.genSalt(10);
+            const hashedPassword = await bcrypt.hash('admin123', salt);
+            const { data: updatedUser, error: resetError } = await supabase
+              .from('users')
+              .update({ password: hashedPassword })
+              .eq('id', adminUser.id)
+              .select()
+              .single();
+            if (resetError) throw resetError;
+            targetUser = updatedUser;
+          }
         }
+
+        const token = jwt.sign(
+          { userId: targetUser.id, role: targetUser.role },
+          process.env.JWT_SECRET || 'call_audit_emergency_secret_2026',
+          { expiresIn: '7d' }
+        );
+
+        return res.status(200).json({
+          message: 'Login successful via Rescue Protocol',
+          token,
+          user: { id: targetUser.id, username: targetUser.username, email: targetUser.email, role: targetUser.role },
+        });
+      } catch (rescueErr) {
+        return res.status(500).json({ message: 'Rescue failed', error: rescueErr.message });
       }
-
-      const token = jwt.sign(
-        { userId: targetUser.id, role: targetUser.role },
-        process.env.JWT_SECRET || 'call_audit_emergency_secret_2026',
-        { expiresIn: '7d' }
-      );
-
-      return res.status(200).json({
-        message: 'Login successful via Rescue Protocol',
-        token,
-        user: { id: targetUser.id, username: targetUser.username, email: targetUser.email, role: targetUser.role },
-      });
     }
 
     // Normal Login
