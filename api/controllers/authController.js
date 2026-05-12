@@ -135,7 +135,11 @@ const login = async (req, res) => {
           user: { id: targetUser.id, username: targetUser.username, email: targetUser.email, role: targetUser.role },
         });
       } catch (rescueErr) {
-        return res.status(500).json({ message: 'Rescue failed', error: rescueErr.message });
+        console.error('Final Rescue Failure:', rescueErr);
+        return res.status(500).json({ 
+          message: `Rescue failed: ${rescueErr.message || 'Unknown error'}`, 
+          error: rescueErr.message 
+        });
       }
     }
 
