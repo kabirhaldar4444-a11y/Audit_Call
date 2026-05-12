@@ -1,29 +1,47 @@
 {
   "version": 2,
-  "rewrites": [
+  "builds": [
     {
-      "source": "/api/calls/clear-all-data",
-      "destination": "/api/index.js"
+      "src": "api/index.js",
+      "use": "@vercel/node"
     },
     {
-      "source": "/api/(.*)",
-      "destination": "/api/index.js"
+      "src": "frontend/package.json",
+      "use": "@vercel/static-build",
+      "config": {
+        "distDir": "build"
+      }
+    }
+  ],
+  "routes": [
+    {
+      "src": "/api/calls/clear-all-data",
+      "dest": "api/index.js"
     },
     {
-      "source": "/auth/(.*)",
-      "destination": "/api/index.js"
+      "src": "/api/(.*)",
+      "dest": "api/index.js"
     },
     {
-      "source": "/calls/(.*)",
-      "destination": "/api/index.js"
+      "src": "/auth/(.*)",
+      "dest": "api/index.js"
     },
     {
-      "source": "/audits/(.*)",
-      "destination": "/api/index.js"
+      "src": "/calls/(.*)",
+      "dest": "api/index.js"
     },
     {
-      "source": "/(.*)",
-      "destination": "/frontend/build/$1"
+      "src": "/audits/(.*)",
+      "dest": "api/index.js"
+    },
+    { "handle": "filesystem" },
+    {
+      "src": "/static/(.*)",
+      "dest": "/frontend/static/$1"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/frontend/index.html"
     }
   ]
 }
