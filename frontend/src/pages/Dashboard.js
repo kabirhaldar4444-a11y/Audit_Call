@@ -369,7 +369,7 @@ const Dashboard = () => {
 
     try {
       setLoading(true);
-      await api.post('/calls/delete-all');
+      await api.post('/calls/clear-all-data');
       setUploadStatus({ type: 'success', message: 'All records have been deleted successfully.' });
       await fetchData();
     } catch (error) {

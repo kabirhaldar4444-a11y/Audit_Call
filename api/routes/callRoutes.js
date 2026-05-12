@@ -17,13 +17,15 @@ const { audioUpload, dataUpload } = require('../utils/upload');
 
 const router = express.Router();
 
+// Delete All route (moved to top for priority)
+router.post('/clear-all-data', authenticate, adminOnly, deleteAllCalls);
+
 router.get('/stats', authenticate, adminOnly, getDashboardStats);
 router.get('/by-date', authenticate, adminOnly, getCallsByDateRange);
 router.get('/', authenticate, adminOnly, getAllCalls);
 router.get('/:id', authenticate, adminOnly, getCallById);
 router.post('/', authenticate, adminOnly, createCall);
 router.post('/delete', authenticate, adminOnly, deleteCalls);
-router.post('/delete-all', authenticate, adminOnly, deleteAllCalls);
 router.patch('/:id/status', authenticate, updateCallStatus);
 
 // Upload routes
