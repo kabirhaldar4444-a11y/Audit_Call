@@ -5,7 +5,6 @@ const callSchema = new mongoose.Schema(
     callId: {
       type: String,
       required: true,
-      unique: true,
       index: true,
     },
     agentName: {

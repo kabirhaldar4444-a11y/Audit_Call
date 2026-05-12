@@ -322,17 +322,15 @@ const uploadCallData = async (req, res) => {
     if (callsToSave.length > 0) {
       if (!isOffline) {
         try {
-          // Use bulkWrite for upserting (if same callId exists)
+          // Use insertOne to ensure every row becomes a new record (allowing duplicates)
           const bulkOps = callsToSave.map(call => ({
-            updateOne: {
-              filter: { callId: call.callId },
-              update: { $set: call },
-              upsert: true
+            insertOne: {
+              document: call
             }
           }));
 
           const bulkResult = await Call.bulkWrite(bulkOps, { ordered: false });
-          results.success = (bulkResult.upsertedCount || 0) + (bulkResult.modifiedCount || 0) + (bulkResult.matchedCount || 0);
+          results.success = bulkResult.insertedCount || bulkResult.nInserted || callsToSave.length;
         } catch (dbErr) {
           console.error('❌ MongoDB Bulk Save failed:', dbErr.message);
           // Vercel fallback is impossible (read-only), so we report the REAL error
@@ -485,15 +483,13 @@ const uploadCallDataBatch = async (req, res) => {
         // 1. Try to save to MongoDB if connected
         if (!isOffline) {
           const bulkOps = callsToSave.map(call => ({
-            updateOne: {
-              filter: { callId: call.callId },
-              update: { $set: call },
-              upsert: true
+            insertOne: {
+              document: call
             }
           }));
 
           const bulkResult = await Call.bulkWrite(bulkOps, { ordered: false });
-          results.success = (bulkResult.upsertedCount || 0) + (bulkResult.modifiedCount || 0) + (bulkResult.matchedCount || 0);
+          results.success = bulkResult.insertedCount || bulkResult.nInserted || callsToSave.length;
         }
 
         // 2. Always save to local storage as backup (or primary if offline)
