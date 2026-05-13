@@ -69,7 +69,7 @@ const getAllCalls = async (req, res) => {
       agentName: call.agent_name,
       agentEmail: call.agent_email,
       firstDispose: call.first_dispose,
-      date: call.call_date, // Frontend expects 'date'
+      date: call.call_date ? new Date(call.call_date).toISOString() : null, // Clean ISO string
       callTime: call.call_time,
       phoneNumber: call.phone_number,
       customerName: call.customer_name,
