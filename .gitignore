@@ -3,6 +3,7 @@ backend/node_modules/
 frontend/node_modules/
 backend/uploads/
 .env
+api/.env
 backend/.env
 frontend/.env.local
 .DS_Store
