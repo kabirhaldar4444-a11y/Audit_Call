@@ -10,35 +10,17 @@ const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 async function debugStats() {
-  console.log('Checking tables...');
-  
-  // Try to query schema information
-  const { data: tables, error: tableError } = await supabase
-    .rpc('get_tables'); // This might not work if RPC not defined
-    const { count: usersCount, error: usersError } = await supabase
-    .from('users')
-    .select('*', { count: 'exact', head: true });
-
-  if (usersError) {
-    console.error('Error on users table:', usersError.message);
-  } else {
-    console.log('Total rows in users table:', usersCount);
-  }
-    
-  if (tableError) {
-    console.log('Could not list tables via RPC, trying direct count on calls...');
-  } else {
-    console.log('Tables:', tables);
-  }
-
-  const { count, error } = await supabase
+  console.log('--- Wide Open Query ---');
+  const { data: allData, error: allDataError, count: totalCount } = await supabase
     .from('calls')
-    .select('*', { count: 'exact', head: true });
+    .select('*', { count: 'exact' })
+    .limit(5);
 
-  if (error) {
-    console.error('Error on calls table:', error.message);
+  if (allDataError) {
+    console.error('Wide Open Error:', allDataError.message);
   } else {
-    console.log('Total rows in calls table:', count);
+    console.log('Total Count (No Filters):', totalCount);
+    console.log('Sample Data:', JSON.stringify(allData, null, 2));
   }
 }
 

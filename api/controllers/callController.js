@@ -389,11 +389,13 @@ const getDashboardStats = async (req, res) => {
     const [
       totalRes,
       pendingRes,
-      auditedRes
+      auditedRes,
+      rawRes
     ] = await Promise.all([
       supabase.from('calls').select('*', { count: 'exact', head: true }).eq('is_active', true),
       supabase.from('calls').select('*', { count: 'exact', head: true }).eq('status', 'pending').eq('is_active', true),
-      supabase.from('calls').select('*', { count: 'exact', head: true }).eq('status', 'audited').eq('is_active', true)
+      supabase.from('calls').select('*', { count: 'exact', head: true }).eq('status', 'audited').eq('is_active', true),
+      supabase.from('calls').select('*', { count: 'exact', head: true })
     ]);
 
     // Check for errors
@@ -404,7 +406,8 @@ const getDashboardStats = async (req, res) => {
     const stats = { 
       totalCalls: totalRes.count || 0, 
       pendingCalls: pendingRes.count || 0, 
-      auditedCalls: auditedRes.count || 0 
+      auditedCalls: auditedRes.count || 0,
+      rawTotal: rawRes.count || 0
     };
 
     console.log('Stats retrieved:', stats);
@@ -453,10 +456,12 @@ const getCallsByDateRange = async (req, res) => {
 
 const deleteAllCalls = async (req, res) => {
   try {
+    // Use neq('id', 0) if id is serial, or lte('id', 'zzzz...') if UUID
+    // For BIGSERIAL id, neq(id, 0) is safe.
     const { error } = await supabase
       .from('calls')
       .delete()
-      .neq('id', 0); // Delete everything where id != 0 (which is all)
+      .not('id', 'is', null); // Delete everything where id is not null (all rows)
 
     if (error) throw error;
     res.status(200).json({ message: 'All records deleted successfully' });

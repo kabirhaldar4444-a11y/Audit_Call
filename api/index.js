@@ -2,10 +2,15 @@ const express = require('express');
 const cors = require('cors');
 const dotenv = require('dotenv');
 const path = require('path');
-const supabase = require('./config/supabase');
-
-// Load environment variables
 dotenv.config();
+
+console.log('--- Supabase Configuration ---');
+console.log('URL:', process.env.SUPABASE_URL ? 'Loaded' : 'MISSING');
+console.log('Service Role Key:', process.env.SUPABASE_SERVICE_ROLE_KEY ? 'Loaded' : 'MISSING');
+console.log('Anon Key:', process.env.SUPABASE_ANON_KEY ? 'Loaded' : 'MISSING');
+console.log('------------------------------');
+
+const supabase = require('./config/supabase');
 
 if (!process.env.JWT_SECRET) {
   console.warn('⚠️  JWT_SECRET is not set! Using fallback for safety.');

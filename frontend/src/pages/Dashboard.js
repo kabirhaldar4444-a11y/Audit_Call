@@ -415,7 +415,7 @@ const Dashboard = () => {
         <div className="stat-card">
           <div className="stat-content">
             <h3>Total Calls</h3>
-            <p className="stat-number">{stats?.totalCalls ?? 0}</p>
+            <p className="stat-number">{stats?.totalCalls || stats?.rawTotal || 0}</p>
           </div>
           <div className="stat-icon total">📞</div>
         </div>
