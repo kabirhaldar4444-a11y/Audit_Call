@@ -593,15 +593,15 @@ const Dashboard = () => {
                     />
                   </td>
                   <td className="sl-no-col">{(page - 1) * (pagination?.limit ?? 20) + index + 1}</td>
-                  <td className="bold">{call?.callId || 'N/A'}</td>
-                  <td>{call?.agentName || 'N/A'}</td>
+                  <td className="bold">{call?.call_id || call?.callId || 'N/A'}</td>
+                  <td>{call?.agent_name || call?.agentName || 'N/A'}</td>
                   <td>{call?.campaign || 'N/A'}</td>
                   <td>{call?.process || 'General'}</td>
-                  <td>{call?.date ? new Date(call.date).toLocaleString() : 'N/A'}</td>
-                  <td>{call?.callTime || 'N/A'}</td>
+                  <td>{(call?.call_date || call?.date) ? new Date(call.call_date || call.date).toLocaleString() : 'N/A'}</td>
+                  <td>{call?.call_time || call?.callTime || 'N/A'}</td>
                   <td>{formatDuration(call?.duration)}</td>
-                  <td>{call?.agentEmail || 'N/A'}</td>
-                  <td>{call?.firstDispose || 'N/A'}</td>
+                  <td>{call?.agent_email || call?.agentEmail || 'N/A'}</td>
+                  <td>{call?.first_dispose || call?.firstDispose || 'N/A'}</td>
                   <td>{call?.dispose || 'N/A'}</td>
                   <td>
                     <span className={`status-pill ${call?.status || 'pending'}`}>

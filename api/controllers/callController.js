@@ -57,16 +57,21 @@ const getAllCalls = async (req, res) => {
 
     const { data: calls, count: total, error } = await query;
 
-    if (error) throw error;
+    if (error) {
+      console.error('Supabase Query Error:', error);
+      throw error;
+    }
+
+    console.log(`Retrieved ${calls?.length || 0} calls, total count: ${total}`);
 
     res.status(200).json({
       message: 'Calls retrieved successfully',
-      data: calls,
+      data: calls || [],
       pagination: {
-        total,
+        total: total || 0,
         page,
         limit,
-        totalPages: Math.ceil(total / limit)
+        totalPages: Math.ceil((total || 0) / limit)
       },
       databaseMode: 'supabase'
     });
@@ -380,19 +385,32 @@ const uploadAudio = async (req, res) => {
 
 const getDashboardStats = async (req, res) => {
   try {
+    console.log('Fetching dashboard stats from Supabase...');
     const [
-      { count: totalCalls },
-      { count: pendingCalls },
-      { count: auditedCalls }
+      totalRes,
+      pendingRes,
+      auditedRes
     ] = await Promise.all([
       supabase.from('calls').select('*', { count: 'exact', head: true }).eq('is_active', true),
       supabase.from('calls').select('*', { count: 'exact', head: true }).eq('status', 'pending').eq('is_active', true),
       supabase.from('calls').select('*', { count: 'exact', head: true }).eq('status', 'audited').eq('is_active', true)
     ]);
 
-    const stats = { totalCalls, pendingCalls, auditedCalls };
+    // Check for errors
+    if (totalRes.error) console.error('Total Calls Error:', totalRes.error);
+    if (pendingRes.error) console.error('Pending Calls Error:', pendingRes.error);
+    if (auditedRes.error) console.error('Audited Calls Error:', auditedRes.error);
+
+    const stats = { 
+      totalCalls: totalRes.count || 0, 
+      pendingCalls: pendingRes.count || 0, 
+      auditedCalls: auditedRes.count || 0 
+    };
+
+    console.log('Stats retrieved:', stats);
     res.status(200).json({ data: { ...stats, databaseMode: 'supabase' } });
   } catch (error) {
+    console.error('Final Stats Error:', error);
     res.status(500).json({ message: error.message });
   }
 };
