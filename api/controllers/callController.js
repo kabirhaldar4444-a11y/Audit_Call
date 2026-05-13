@@ -62,11 +62,25 @@ const getAllCalls = async (req, res) => {
       throw error;
     }
 
-    console.log(`Retrieved ${calls?.length || 0} calls, total count: ${total}`);
+    // Map keys to camelCase for frontend compatibility
+    const mappedCalls = (calls || []).map(call => ({
+      ...call,
+      callId: call.call_id,
+      agentName: call.agent_name,
+      agentEmail: call.agent_email,
+      firstDispose: call.first_dispose,
+      date: call.call_date, // Frontend expects 'date'
+      callTime: call.call_time,
+      phoneNumber: call.phone_number,
+      customerName: call.customer_name,
+      audioUrl: call.audio_url
+    }));
+
+    console.log(`Retrieved ${mappedCalls.length} calls, total count: ${total}`);
 
     res.status(200).json({
       message: 'Calls retrieved successfully',
-      data: calls || [],
+      data: mappedCalls,
       pagination: {
         total: total || 0,
         page,
@@ -410,7 +424,13 @@ const getDashboardStats = async (req, res) => {
       rawTotal: rawRes.count || 0
     };
 
-    console.log('Stats retrieved:', stats);
+    // If totalCalls is 0 but rawTotal > 0, it means is_active filter is hiding data
+    if (stats.totalCalls === 0 && stats.rawTotal > 0) {
+      console.warn('⚠️ WARNING: totalCalls is 0 but rawTotal is', stats.rawTotal);
+      stats.totalCalls = stats.rawTotal; // Fallback to raw total
+    }
+
+    console.log('Final stats being sent to frontend:', stats);
     res.status(200).json({ data: { ...stats, databaseMode: 'supabase' } });
   } catch (error) {
     console.error('Final Stats Error:', error);

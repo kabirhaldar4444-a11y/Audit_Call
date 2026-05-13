@@ -10,17 +10,19 @@ const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 async function debugStats() {
-  console.log('--- Wide Open Query ---');
-  const { data: allData, error: allDataError, count: totalCount } = await supabase
+  console.log('--- Raw Data Check ---');
+  const { data, error } = await supabase
     .from('calls')
-    .select('*', { count: 'exact' })
-    .limit(5);
+    .select('*')
+    .limit(10);
 
-  if (allDataError) {
-    console.error('Wide Open Error:', allDataError.message);
+  if (error) {
+    console.error('Error:', error.message);
   } else {
-    console.log('Total Count (No Filters):', totalCount);
-    console.log('Sample Data:', JSON.stringify(allData, null, 2));
+    console.log('Total rows:', data.length);
+    data.forEach((row, i) => {
+      console.log(`Row ${i + 1}:`, JSON.stringify(row, null, 2));
+    });
   }
 }
 
