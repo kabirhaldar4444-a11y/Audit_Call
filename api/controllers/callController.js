@@ -50,12 +50,34 @@ const getAllCalls = async (req, res) => {
     if (req.query.dateFrom) query = query.gte('call_date', req.query.dateFrom);
     if (req.query.dateTo) query = query.lte('call_date', req.query.dateTo);
 
-    const sortField = req.query.sortField === 'date' ? 'call_date' : (req.query.sortField || 'call_date');
+    // Map sort field to database column names
+    let sortField = req.query.sortField || 'created_at';
+    if (sortField === 'date') sortField = 'call_date';
+    if (sortField === 'createdAt') sortField = 'created_at';
+    if (sortField === 'callId') sortField = 'call_id';
+    if (sortField === 'agentName') sortField = 'agent_name';
+    if (sortField === 'duration') sortField = 'duration';
+    
     const ascending = req.query.sortOrder === 'asc';
     
     query = query.order(sortField, { ascending }).range(from, to);
 
-    const { data: calls, count: total, error } = await query;
+    let { data: calls, count: total, error } = await query;
+
+    // Fallback if sorting failed (e.g., column doesn't exist)
+    if (error && error.code === '42703') {
+      console.warn('Sorting failed, retrying with fallback sort...');
+      const fallbackQuery = supabase
+        .from('calls')
+        .select('*', { count: 'exact' })
+        .order('created_at', { ascending: false })
+        .range(from, to);
+      
+      const retry = await fallbackQuery;
+      calls = retry.data;
+      total = retry.count;
+      error = retry.error;
+    }
 
     if (error) {
       console.error('Supabase Query Error:', error);
