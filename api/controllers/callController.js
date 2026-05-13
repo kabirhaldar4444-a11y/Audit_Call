@@ -187,17 +187,21 @@ const uploadCallData = async (req, res) => {
         const normalizedRow = normalizeRow(row);
         const getVal = (keys) => getValFromRow(normalizedRow, keys);
 
-        let rawCallId = getVal(['call id', 'callid', 'sl no', 'serial no', 'slno', 'id', 'uid', 'record id', 'recordid', 'lead id', 'leadid']);
-        const allValsForUuid = Object.values(row);
-        let foundUuid = '';
-        for (const val of allValsForUuid) {
-          const s = String(val).trim();
-          if (s.length > 15 && (s.includes('-') || /^[a-f0-9]{15,}$/i.test(s))) {
-            foundUuid = s;
-            break;
+        let rawCallId = getVal(['lead id', 'leadid', 'call id', 'callid', 'sl no', 'serial no', 'slno', 'id', 'uid', 'record id', 'recordid']);
+        
+        // Only look for UUID if no direct ID match was found
+        if (!rawCallId) {
+          const allValsForUuid = Object.values(row);
+          let foundUuid = '';
+          for (const val of allValsForUuid) {
+            const s = String(val).trim();
+            if (s.length > 15 && (s.includes('-') || /^[a-f0-9]{15,}$/i.test(s))) {
+              foundUuid = s;
+              break;
+            }
           }
+          if (foundUuid) rawCallId = foundUuid;
         }
-        if (foundUuid) rawCallId = foundUuid;
 
         if (!rawCallId || (typeof rawCallId === 'string' && rawCallId.length < 10 && /^\d+$/.test(rawCallId))) {
           const agentPart = String(getVal(['agent', 'agent name']) || 'unknown').toLowerCase().replace(/\s+/g, '');
@@ -289,16 +293,21 @@ const uploadCallDataBatch = async (req, res) => {
         const normalizedRow = normalizeRow(row);
         const getVal = (keys) => getValFromRow(normalizedRow, keys);
 
-        let rawCallId = getVal(['call id', 'callid', 'sl no', 'serial no', 'slno', 'id', 'uid', 'record id', 'recordid', 'lead id', 'leadid']);
-        const allVals = Object.values(row);
-        let foundUuid = '';
-        for (const v of allVals) {
-          const s = String(v).trim();
-          if (s.length > 15 && (s.includes('-') || /^[a-f0-9]{15,}$/i.test(s))) {
-            foundUuid = s; break;
+        let rawCallId = getVal(['lead id', 'leadid', 'call id', 'callid', 'sl no', 'serial no', 'slno', 'id', 'uid', 'record id', 'recordid']);
+        
+        // Only look for UUID if no direct ID match was found
+        if (!rawCallId) {
+          const allVals = Object.values(row);
+          let foundUuid = '';
+          for (const v of allVals) {
+            const s = String(v).trim();
+            if (s.length > 15 && (s.includes('-') || /^[a-f0-9]{15,}$/i.test(s))) {
+              foundUuid = s; break;
+            }
           }
+          if (foundUuid) rawCallId = foundUuid;
         }
-        if (foundUuid) rawCallId = foundUuid;
+
         if (!rawCallId) rawCallId = `GEN-${Date.now()}-${startIndex + i}`;
 
         let callId = String(rawCallId || '').trim();
