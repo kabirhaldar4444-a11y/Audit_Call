@@ -562,7 +562,6 @@ const Dashboard = () => {
                 </th>
                 <th>AGENT EMAIL</th>
                 <th>FIRST DISPOSE</th>
-                <th>DISPOSE</th>
                 <th>
                   STATUS
                   <div className="header-filter-container">
@@ -602,7 +601,6 @@ const Dashboard = () => {
                   <td>{formatDuration(call?.duration)}</td>
                   <td>{call?.agent_email || call?.agentEmail || 'N/A'}</td>
                   <td>{call?.first_dispose || call?.firstDispose || 'N/A'}</td>
-                  <td>{call?.dispose || 'N/A'}</td>
                   <td>
                     <span className={`status-pill ${call?.status || 'pending'}`}>
                       • {(call?.status || 'pending').charAt(0).toUpperCase() + (call?.status || 'pending').slice(1)}
