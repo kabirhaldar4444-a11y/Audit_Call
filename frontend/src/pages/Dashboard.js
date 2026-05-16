@@ -562,8 +562,6 @@ const Dashboard = () => {
                 </th>
                 <th>AGENT EMAIL</th>
                 <th>FIRST DISPOSE</th>
-                <th>SECOND DISPOSE</th>
-                <th>THIRD DISPOSE</th>
                 <th>DISPOSE</th>
                 <th>
                   STATUS
@@ -604,8 +602,6 @@ const Dashboard = () => {
                   <td>{formatDuration(call?.duration)}</td>
                   <td>{call?.agent_email || call?.agentEmail || 'N/A'}</td>
                   <td>{call?.first_dispose || call?.firstDispose || 'N/A'}</td>
-                  <td>{call?.second_dispose || call?.secondDispose || 'N/A'}</td>
-                  <td>{call?.third_dispose || call?.thirdDispose || 'N/A'}</td>
                   <td>{call?.dispose || 'N/A'}</td>
                   <td>
                     <span className={`status-pill ${call?.status || 'pending'}`}>
