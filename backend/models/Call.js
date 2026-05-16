@@ -22,6 +22,12 @@ const callSchema = new mongoose.Schema(
     firstDispose: {
       type: String,
     },
+    secondDispose: {
+      type: String,
+    },
+    thirdDispose: {
+      type: String,
+    },
     dispose: {
       type: String,
     },

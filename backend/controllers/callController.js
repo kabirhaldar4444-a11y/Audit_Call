@@ -278,11 +278,13 @@ const uploadCallData = async (req, res) => {
         // Map remaining fields
         const agentEmail = String(getVal(['agent email', 'agentemail', 'email', 'email id', 'emailid']) || '').toLowerCase().trim();
         const firstDispose = String(getVal(['first dispose', 'first_dispose', 'firstdisposition', 'sub disposition', 'sub_disposition', 'subdisposition', 'reason', 'substatus', 'sub-status']) || '').trim();
-        const dispose = String(getVal(['dispose', 'disposition', 'status', 'result', 'call result', 'callresult', 'resolution', 'terminating reason', 'disconnect reason', 'agent status', 'call status']) || '').trim();
+        const secondDispose = String(getVal(['second dispose', 'second_dispose', 'secondd', 'second_d', 'second disposition']) || '').trim();
+        const thirdDispose = String(getVal(['third dispose', 'third_dispose', 'thirddis', 'third_dis', 'third disposition']) || '').trim();
+        const dispose = String(getVal(['dispose', 'disposition', 'final dispose', 'final_dispose', 'final disposition', 'status', 'result', 'call result', 'callresult', 'resolution', 'terminating reason', 'disconnect reason', 'agent status', 'call status']) || '').trim();
         const campaign = String(getVal(['campaign', 'campaign name', 'campaign_name', 'campaign id', 'campaign_id', 'camp', 'campaignname', 'campaignid', 'queue', 'queue name']) || '').trim();
         const processName = String(getVal(['process', 'dept', 'department', 'department name', 'departmentname', 'campaign', 'project', 'client']) || 'General').trim();
         const callTime = String(getVal(['call time', 'calltime', 'time of call', 'timeofcall']) || '').trim();
-        const duration = String(getVal(['duration', 'talktime', 'talk time', 'call duration', 'callduration', 'call time', 'calltime', 'length']) || '').trim();
+        const duration = String(getVal(['duration', 'talktime', 'talk time', 'call duration', 'callduration', 'length', 'call time', 'calltime']) || '').trim();
         const remarks = String(getVal(['remarks', 'comment', 'notes', 'feedback']) || '').trim();
         const customerName = String(getVal(['customer name', 'customername', 'customer', 'client name', 'clientname']) || '').trim();
         const recordingPath = String(getVal(['recording path', 'recordingpath', 'audio link', 'audiolink', 'audio url', 'audiourl', 'recording link', 'recordinglink']) || '').trim();
@@ -293,6 +295,8 @@ const uploadCallData = async (req, res) => {
           agentEmail,
           campaign,
           firstDispose,
+          secondDispose,
+          thirdDispose,
           dispose,
           process: processName,
           date: finalDate,
@@ -439,14 +443,16 @@ const uploadCallDataBatch = async (req, res) => {
 
         const agentEmail = String(getVal(['agent email', 'agentemail', 'email', 'email id', 'emailid']) || '').toLowerCase().trim();
         const firstDispose = String(getVal(['first dispose', 'first_dispose', 'firstdisposition', 'sub disposition', 'sub_disposition', 'subdisposition', 'reason', 'substatus', 'sub-status']) || '').trim();
-        const dispose = String(getVal(['dispose', 'disposition', 'status', 'result', 'call result', 'callresult', 'resolution', 'terminating reason', 'disconnect reason', 'agent status', 'call status']) || '').trim();
+        const dispose = String(getVal(['dispose', 'disposition', 'final dispose', 'final_dispose', 'final disposition', 'status', 'result', 'call result', 'callresult', 'resolution', 'terminating reason', 'disconnect reason', 'agent status', 'call status']) || '').trim();
         const campaign = String(getVal(['campaign', 'campaign name', 'campaign_name', 'campaign id', 'campaign_id', 'camp', 'campaignname', 'campaignid', 'queue', 'queue name']) || '').trim();
         const processName = String(getVal(['process', 'dept', 'department', 'department name', 'departmentname', 'campaign', 'project', 'client']) || 'General').trim();
         const callTime = String(getVal(['call time', 'calltime', 'time of call', 'timeofcall']) || '').trim();
-        const duration = String(getVal(['duration', 'talktime', 'talk time', 'call duration', 'callduration', 'call time', 'calltime', 'length']) || '').trim();
+        const duration = String(getVal(['duration', 'talktime', 'talk time', 'call duration', 'callduration', 'length', 'call time', 'calltime']) || '').trim();
         const remarks = String(getVal(['remarks', 'comment', 'notes', 'feedback']) || '').trim();
         const customerName = String(getVal(['customer name', 'customername', 'customer', 'client name', 'clientname']) || '').trim();
         const recordingPath = String(getVal(['recording path', 'recordingpath', 'audio link', 'audiolink', 'audio url', 'audiourl', 'recording link', 'recordinglink']) || '').trim();
+        const secondDispose = String(getVal(['second dispose', 'second_dispose', 'secondd', 'second_d', 'second disposition']) || '').trim();
+        const thirdDispose = String(getVal(['third dispose', 'third_dispose', 'thirddis', 'third_dis', 'third disposition']) || '').trim();
 
         const callDoc = {
           callId: uniqueCallId,
@@ -454,6 +460,8 @@ const uploadCallDataBatch = async (req, res) => {
           agentEmail,
           campaign,
           firstDispose,
+          secondDispose,
+          thirdDispose,
           dispose,
           process: processName,
           date: finalDate,
@@ -482,7 +490,6 @@ const uploadCallDataBatch = async (req, res) => {
 
     if (callsToSave.length > 0) {
       try {
-        // 1. Try to save to MongoDB if connected
         if (!isOffline) {
           const bulkOps = callsToSave.map(call => ({
             insertOne: {

@@ -252,6 +252,8 @@ const Calls = () => {
                     <th>Call Time</th>
                     <th>Duration</th>
                     <th>First Dispose</th>
+                    <th>Second Dispose</th>
+                    <th>Third Dispose</th>
                     <th>Dispose</th>
                     <th>
                       Status
@@ -282,6 +284,8 @@ const Calls = () => {
                       <td>{call.callTime || 'N/A'}</td>
                       <td>{formatDuration(call.duration)}</td>
                       <td>{call.firstDispose || 'N/A'}</td>
+                      <td>{call.secondDispose || 'N/A'}</td>
+                      <td>{call.thirdDispose || 'N/A'}</td>
                       <td>{call.dispose || 'N/A'}</td>
                       <td>
                         <span className={`status-pill ${call.status}`}>
